@@ -135,8 +135,14 @@ export default async function handler(req) {
       );
     }
 
+    /** Docs: HTTP 500 can still include workId + task_id (treat as success for polling). */
+    const hasTask =
+      data &&
+      (data.workId || (data.data && data.data.task_id));
+    const httpStatus = hasTask ? 200 : res.ok ? 200 : res.status;
+
     return new Response(JSON.stringify(data), {
-      status: res.ok ? 200 : res.status,
+      status: httpStatus,
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (e) {

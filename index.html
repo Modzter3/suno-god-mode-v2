@@ -475,6 +475,41 @@ textarea { resize: vertical; min-height: 80px; }
 .udio-browser-row input[type="checkbox"] { margin-top: 3px; }
 #udioBrowserKeyWrap { margin-top: 8px; }
 .udio-mini { font-size: 0.72rem; color: var(--text-muted); margin-top: 6px; line-height: 1.35; }
+.kie-section { margin-top: 4px; }
+.kie-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 10px; }
+.kie-tab {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  font-weight: 600;
+}
+.kie-tab:hover { border-color: var(--accent); color: var(--accent); }
+.kie-tab.active { border-color: var(--accent); color: var(--accent); background: rgba(99, 102, 241, 0.08); }
+.kie-tab-panel { margin-top: 10px; }
+.kie-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+@media (max-width: 640px) { .kie-row { grid-template-columns: 1fr; } }
+.kie-row label { display: block; font-size: 0.75rem; margin-bottom: 4px; color: var(--text-muted); }
+.kie-row input, .kie-row select, .kie-row textarea {
+  width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--bg); color: var(--text); font-size: 0.85rem;
+}
+.kie-actions { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.kie-btn {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #fff; border: none; border-radius: 10px; padding: 10px 14px; font-size: 0.8rem; font-weight: 600;
+  cursor: pointer;
+}
+.kie-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.kie-status { margin-top: 10px; font-size: 0.8rem; color: var(--text-muted); line-height: 1.4; }
+.kie-results { margin-top: 12px; display: flex; flex-direction: column; gap: 12px; }
+.kie-result-block { padding: 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-elevated); }
+.kie-result-block h4 { margin: 0 0 8px; font-size: 0.85rem; color: var(--accent); }
+.kie-stem-list { font-size: 0.75rem; display: flex; flex-direction: column; gap: 6px; }
+.kie-stem-list a { color: var(--accent); word-break: break-all; }
 .format-btn {
   background: var(--bg-elevated);
   border: 2px solid var(--border);
@@ -1098,6 +1133,516 @@ html.light .chip.suggested {
             </button>
             <div id="udioStatus" class="udio-status" style="display:none"></div>
             <div id="udioPlayers" class="udio-players"></div>
+          </div>
+        </div>
+        <!-- Kie.ai Suno API -->
+        <div class="output-section fade-in kie-section" id="kieSection" style="animation-delay:0.25s">
+          <div class="output-header">
+            <h3><i class="fas fa-cloud-music"></i> Kie.ai Suno API</h3>
+          </div>
+          <div class="output-body udio-body">
+            <p class="udio-hint">Uses <a href="https://docs.kie.ai/suno-api/quickstart" target="_blank" rel="noopener">Kie.ai&rsquo;s Suno API</a> (separate from Udio). Set <code>KIE_API_KEY</code> on Vercel or in <code>.env.local</code> for <code>vercel dev</code>. Callback URL defaults to <code>/api/kie-callback</code> on your deployment; set <code>KIE_CALLBACK_URL</code> if local http callbacks fail.</p>
+            <div class="kie-tabs" role="tablist">
+              <button type="button" class="kie-tab active" data-kie-tab="generate" onclick="kieShowTab('generate')">Generate</button>
+              <button type="button" class="kie-tab" data-kie-tab="lyrics" onclick="kieShowTab('lyrics')">Lyrics only</button>
+              <button type="button" class="kie-tab" data-kie-tab="extend" onclick="kieShowTab('extend')">Extend</button>
+              <button type="button" class="kie-tab" data-kie-tab="video" onclick="kieShowTab('video')">Music video</button>
+              <button type="button" class="kie-tab" data-kie-tab="stems" onclick="kieShowTab('stems')">Stems</button>
+              <button type="button" class="kie-tab" data-kie-tab="wav" onclick="kieShowTab('wav')">WAV</button>
+              <button type="button" class="kie-tab" data-kie-tab="cover" onclick="kieShowTab('cover')">Cover upload</button>
+              <button type="button" class="kie-tab" data-kie-tab="upext" onclick="kieShowTab('upext')">Upload extend</button>
+              <button type="button" class="kie-tab" data-kie-tab="instr" onclick="kieShowTab('instr')">+ Instrumental</button>
+              <button type="button" class="kie-tab" data-kie-tab="vox" onclick="kieShowTab('vox')">+ Vocals</button>
+              <button type="button" class="kie-tab" data-kie-tab="align" onclick="kieShowTab('align')">Align lyrics</button>
+              <button type="button" class="kie-tab" data-kie-tab="persona" onclick="kieShowTab('persona')">Persona</button>
+              <button type="button" class="kie-tab" data-kie-tab="midi" onclick="kieShowTab('midi')">MIDI</button>
+            </div>
+            <div id="kiePanelGenerate" class="kie-tab-panel" data-kie-panel="generate">
+              <div class="kie-row">
+                <div>
+                  <label>Model</label>
+                  <select id="kieModel">
+                    <option value="V4">V4</option>
+                    <option value="V4_5">V4_5</option>
+                    <option value="V4_5PLUS">V4_5PLUS</option>
+                    <option value="V4_5ALL">V4_5ALL</option>
+                    <option value="V5" selected>V5</option>
+                    <option value="V5_5">V5_5</option>
+                  </select>
+                </div>
+                <div>
+                  <label>Vocal gender (custom mode)</label>
+                  <select id="kieVocalGender">
+                    <option value="">— Auto —</option>
+                    <option value="m">Male</option>
+                    <option value="f">Female</option>
+                  </select>
+                </div>
+              </div>
+              <label class="udio-browser-row" style="cursor:default">
+                <input type="checkbox" id="kieCustomMode" checked onchange="kieToggleCustom()" />
+                <span><strong>Custom mode</strong> — use title, style, and lyrics from Suno God output above (recommended)</span>
+              </label>
+              <div id="kieNonCustomWrap" style="display:none" class="kie-row">
+                <div style="grid-column:1/-1">
+                  <label>Prompt (non-custom, max 500 chars)</label>
+                  <textarea id="kieSimplePrompt" rows="3" placeholder="Short idea for auto lyrics…"></textarea>
+                </div>
+              </div>
+              <div class="kie-row">
+                <div style="grid-column:1/-1">
+                  <label>Negative tags (optional)</label>
+                  <input type="text" id="kieNegativeTags" placeholder="e.g. Heavy Metal, drums" maxlength="500" />
+                </div>
+              </div>
+              <div class="kie-row">
+                <div>
+                  <label>Persona ID (optional)</label>
+                  <input type="text" id="kiePersonaId" placeholder="From Kie persona API" maxlength="80" />
+                </div>
+              </div>
+              <div class="kie-actions">
+                <button type="button" class="kie-btn" id="kieGenerateBtn" onclick="startKieGenerate()"><i class="fas fa-circle-play"></i> Send to Kie</button>
+              </div>
+            </div>
+            <div id="kiePanelLyrics" class="kie-tab-panel" style="display:none" data-kie-panel="lyrics">
+              <div class="kie-row">
+                <div style="grid-column:1/-1">
+                  <label>Lyrics prompt (max ~200 chars per Kie)</label>
+                  <textarea id="kieLyricsPrompt" rows="3" maxlength="220" placeholder="Theme or story for generated lyrics…"></textarea>
+                </div>
+              </div>
+              <div class="kie-actions">
+                <button type="button" class="kie-btn" id="kieLyricsBtn" onclick="startKieLyricsOnly()"><i class="fas fa-pen"></i> Generate lyrics</button>
+              </div>
+            </div>
+            <div id="kiePanelExtend" class="kie-tab-panel" style="display:none" data-kie-panel="extend">
+              <p class="udio-mini">Use <strong>audio ID</strong> from a finished Kie generate (saved after success). Extension uses the same polling as generate.</p>
+              <label class="udio-browser-row" style="cursor:default">
+                <input type="checkbox" id="kieExtendCustom" checked onchange="kieToggleExtendCustom()" />
+                <span>Custom params (prompt, style, title, continue at)</span>
+              </label>
+              <div class="kie-row">
+                <div>
+                  <label>Audio ID</label>
+                  <input type="text" id="kieExtendAudioId" placeholder="UUID from last track" />
+                </div>
+                <div>
+                  <label>Model</label>
+                  <select id="kieExtendModel">
+                    <option value="V4">V4</option>
+                    <option value="V4_5">V4_5</option>
+                    <option value="V4_5PLUS">V4_5PLUS</option>
+                    <option value="V4_5ALL">V4_5ALL</option>
+                    <option value="V5" selected>V5</option>
+                    <option value="V5_5">V5_5</option>
+                  </select>
+                </div>
+              </div>
+              <div id="kieExtendCustomFields">
+                <div class="kie-row">
+                  <div>
+                    <label>Continue at (seconds)</label>
+                    <input type="number" id="kieContinueAt" value="60" min="1" step="1" />
+                  </div>
+                </div>
+                <div class="kie-row">
+                  <div style="grid-column:1/-1">
+                    <label>Extension prompt</label>
+                    <textarea id="kieExtendPrompt" rows="2" placeholder="How the track should continue…"></textarea>
+                  </div>
+                </div>
+                <div class="kie-row">
+                  <div>
+                    <label>Style</label>
+                    <input type="text" id="kieExtendStyle" placeholder="Genre / mood" />
+                  </div>
+                  <div>
+                    <label>Title</label>
+                    <input type="text" id="kieExtendTitle" placeholder="Track title" maxlength="100" />
+                  </div>
+                </div>
+              </div>
+              <div class="kie-actions">
+                <button type="button" class="kie-btn" id="kieExtendBtn" onclick="startKieExtend()"><i class="fas fa-forward"></i> Extend</button>
+              </div>
+            </div>
+            <div id="kiePanelVideo" class="kie-tab-panel" style="display:none" data-kie-panel="video">
+              <div class="kie-row">
+                <div>
+                  <label>Music task ID</label>
+                  <input type="text" id="kieMp4TaskId" placeholder="Kie generate task id" />
+                </div>
+                <div>
+                  <label>Audio ID</label>
+                  <input type="text" id="kieMp4AudioId" placeholder="Track id" />
+                </div>
+              </div>
+              <div class="kie-row">
+                <div>
+                  <label>Author (optional, ≤50)</label>
+                  <input type="text" id="kieMp4Author" maxlength="50" />
+                </div>
+                <div>
+                  <label>Domain / brand (optional, ≤50)</label>
+                  <input type="text" id="kieMp4Domain" maxlength="50" />
+                </div>
+              </div>
+              <div class="kie-actions">
+                <button type="button" class="kie-btn" id="kieMp4Btn" onclick="startKieMp4()"><i class="fas fa-film"></i> Create video</button>
+              </div>
+            </div>
+            <div id="kiePanelStems" class="kie-tab-panel" style="display:none" data-kie-panel="stems">
+              <div class="kie-row">
+                <div>
+                  <label>Music task ID</label>
+                  <input type="text" id="kieStemTaskId" placeholder="Original generate task id" />
+                </div>
+                <div>
+                  <label>Audio ID</label>
+                  <input type="text" id="kieStemAudioId" placeholder="Track id" />
+                </div>
+              </div>
+              <div class="kie-row">
+                <div>
+                  <label>Mode</label>
+                  <select id="kieStemType">
+                    <option value="separate_vocal">Vocal + instrumental (2 stems)</option>
+                    <option value="split_stem">Full split (up to 12 stems)</option>
+                  </select>
+                </div>
+              </div>
+              <div class="kie-actions">
+                <button type="button" class="kie-btn" id="kieStemBtn" onclick="startKieStems()"><i class="fas fa-sliders"></i> Separate</button>
+              </div>
+            </div>
+            <div id="kiePanelWav" class="kie-tab-panel" style="display:none" data-kie-panel="wav">
+              <div class="kie-row">
+                <div>
+                  <label>Music task ID</label>
+                  <input type="text" id="kieWavTaskId" placeholder="Original generate task id" />
+                </div>
+                <div>
+                  <label>Audio ID</label>
+                  <input type="text" id="kieWavAudioId" placeholder="Track id" />
+                </div>
+              </div>
+              <div class="kie-actions">
+                <button type="button" class="kie-btn" id="kieWavBtn" onclick="startKieWav()"><i class="fas fa-file-audio"></i> Convert to WAV</button>
+              </div>
+            </div>
+            <div id="kiePanelCover" class="kie-tab-panel" style="display:none" data-kie-panel="cover">
+              <p class="udio-mini">Cover from a <strong>public URL</strong> to your audio file (≤8 min), or upload below if <strong>Vercel Blob</strong> is configured. Same task polling as Generate.</p>
+              <div class="kie-row">
+                <div style="grid-column:1/-1">
+                  <label>Audio file URL</label>
+                  <input type="url" id="kieCoverUploadUrl" placeholder="https://…/your-audio.mp3" />
+                </div>
+              </div>
+              <div class="kie-row">
+                <div style="grid-column:1/-1">
+                  <label>Upload audio (Blob → fills URL)</label>
+                  <input type="file" accept="audio/*,.mp3,.wav,.m4a,.flac,.webm" data-kie-blob-target="kieCoverUploadUrl" onchange="kieBlobUploadToField(this)" />
+                </div>
+              </div>
+              <label class="udio-browser-row" style="cursor:default">
+                <input type="checkbox" id="kieCoverCustom" checked onchange="kieToggleCoverCustom()" />
+                <span>Custom mode (title, style, lyrics from Suno output — like Generate)</span>
+              </label>
+              <div id="kieCoverNonCustomWrap" style="display:none" class="kie-row">
+                <div style="grid-column:1/-1">
+                  <label>Idea prompt (non-custom, ≤500 chars)</label>
+                  <textarea id="kieCoverSimplePrompt" rows="2"></textarea>
+                </div>
+              </div>
+              <label class="udio-browser-row" style="cursor:default">
+                <input type="checkbox" id="kieCoverInstrumental" />
+                <span>Instrumental (no lyrics in custom mode)</span>
+              </label>
+              <div class="kie-row">
+                <div>
+                  <label>Model</label>
+                  <select id="kieCoverModel">
+                    <option value="V4">V4</option>
+                    <option value="V4_5">V4_5</option>
+                    <option value="V4_5PLUS">V4_5PLUS</option>
+                    <option value="V4_5ALL">V4_5ALL</option>
+                    <option value="V5" selected>V5</option>
+                    <option value="V5_5">V5_5</option>
+                  </select>
+                </div>
+                <div>
+                  <label>Negative tags (optional)</label>
+                  <input type="text" id="kieCoverNeg" maxlength="500" />
+                </div>
+              </div>
+              <div class="kie-row">
+                <div>
+                  <label>Persona ID (optional)</label>
+                  <input type="text" id="kieCoverPersona" maxlength="80" />
+                </div>
+              </div>
+              <div class="kie-actions">
+                <button type="button" class="kie-btn" id="kieCoverBtn" onclick="startKieUploadCover()"><i class="fas fa-upload"></i> Create cover</button>
+              </div>
+            </div>
+            <div id="kiePanelUpext" class="kie-tab-panel" style="display:none" data-kie-panel="upext">
+              <p class="udio-mini">Extend a track from an <strong>upload URL</strong> (or Blob upload). Custom mode matches Suno-style fields.</p>
+              <div class="kie-row">
+                <div style="grid-column:1/-1">
+                  <label>Audio file URL</label>
+                  <input type="url" id="kieUpExtUrl" placeholder="https://…/your-audio.mp3" />
+                </div>
+              </div>
+              <div class="kie-row">
+                <div style="grid-column:1/-1">
+                  <label>Upload audio (Blob → fills URL)</label>
+                  <input type="file" accept="audio/*,.mp3,.wav,.m4a,.flac,.webm" data-kie-blob-target="kieUpExtUrl" onchange="kieBlobUploadToField(this)" />
+                </div>
+              </div>
+              <label class="udio-browser-row" style="cursor:default">
+                <input type="checkbox" id="kieUpExtCustom" checked onchange="kieToggleUpExtCustom()" />
+                <span>Custom parameters (prompt, style, title, continue point)</span>
+              </label>
+              <label class="udio-browser-row" style="cursor:default">
+                <input type="checkbox" id="kieUpExtInstrumental" />
+                <span>Instrumental extension (custom mode)</span>
+              </label>
+              <div class="kie-row">
+                <div>
+                  <label>Continue at (seconds)</label>
+                  <input type="number" id="kieUpExtContinue" value="45" min="1" step="1" />
+                </div>
+                <div>
+                  <label>Model</label>
+                  <select id="kieUpExtModel">
+                    <option value="V4">V4</option>
+                    <option value="V4_5">V4_5</option>
+                    <option value="V4_5PLUS">V4_5PLUS</option>
+                    <option value="V4_5ALL">V4_5ALL</option>
+                    <option value="V5" selected>V5</option>
+                    <option value="V5_5">V5_5</option>
+                  </select>
+                </div>
+              </div>
+              <div id="kieUpExtCustomFields">
+                <div class="kie-row">
+                  <div style="grid-column:1/-1">
+                    <label>Extension prompt</label>
+                    <textarea id="kieUpExtPrompt" rows="2" placeholder="How it should continue…"></textarea>
+                  </div>
+                </div>
+                <div class="kie-row">
+                  <div>
+                    <label>Style</label>
+                    <input type="text" id="kieUpExtStyle" />
+                  </div>
+                  <div>
+                    <label>Title</label>
+                    <input type="text" id="kieUpExtTitle" maxlength="100" />
+                  </div>
+                </div>
+              </div>
+              <div id="kieUpExtSimpleWrap" style="display:none" class="kie-row">
+                <div style="grid-column:1/-1">
+                  <label>Short prompt (non-custom)</label>
+                  <textarea id="kieUpExtSimplePrompt" rows="2" maxlength="500"></textarea>
+                </div>
+              </div>
+              <div class="kie-row">
+                <div>
+                  <label>Negative tags (optional)</label>
+                  <input type="text" id="kieUpExtNeg" maxlength="500" />
+                </div>
+                <div>
+                  <label>Vocal gender</label>
+                  <select id="kieUpExtGender">
+                    <option value="">— Auto —</option>
+                    <option value="m">Male</option>
+                    <option value="f">Female</option>
+                  </select>
+                </div>
+              </div>
+              <div class="kie-actions">
+                <button type="button" class="kie-btn" id="kieUpExtBtn" onclick="startKieUploadExtend()"><i class="fas fa-file-import"></i> Upload extend</button>
+              </div>
+            </div>
+            <div id="kiePanelInstr" class="kie-tab-panel" style="display:none" data-kie-panel="instr">
+              <p class="udio-mini">Add instrumental bed to vocals or a capella audio via URL (or Blob upload). Models: V4_5PLUS, V5, V5_5.</p>
+              <div class="kie-row">
+                <div style="grid-column:1/-1">
+                  <label>Audio URL</label>
+                  <input type="url" id="kieInstrUrl" placeholder="https://…/vocals.mp3" />
+                </div>
+              </div>
+              <div class="kie-row">
+                <div style="grid-column:1/-1">
+                  <label>Upload audio (Blob → fills URL)</label>
+                  <input type="file" accept="audio/*,.mp3,.wav,.m4a,.flac,.webm" data-kie-blob-target="kieInstrUrl" onchange="kieBlobUploadToField(this)" />
+                </div>
+              </div>
+              <div class="kie-row">
+                <div>
+                  <label>Title</label>
+                  <input type="text" id="kieInstrTitle" placeholder="Uses Suno title if empty" />
+                </div>
+                <div>
+                  <label>Model</label>
+                  <select id="kieInstrModel">
+                    <option value="V4_5PLUS" selected>V4_5PLUS</option>
+                    <option value="V5">V5</option>
+                    <option value="V5_5">V5_5</option>
+                  </select>
+                </div>
+              </div>
+              <div class="kie-row">
+                <div>
+                  <label>Tags (style to include)</label>
+                  <input type="text" id="kieInstrTags" placeholder="e.g. relaxing, piano" />
+                </div>
+                <div>
+                  <label>Negative tags (required by API)</label>
+                  <input type="text" id="kieInstrNeg" placeholder="e.g. heavy metal" />
+                </div>
+              </div>
+              <div class="kie-actions">
+                <button type="button" class="kie-btn" id="kieInstrBtn" onclick="startKieAddInstrumental()"><i class="fas fa-guitar"></i> Add instrumental</button>
+              </div>
+            </div>
+            <div id="kiePanelVox" class="kie-tab-panel" style="display:none" data-kie-panel="vox">
+              <p class="udio-mini">Add vocals to instrumental (or other) audio from a URL (or Blob upload).</p>
+              <div class="kie-row">
+                <div style="grid-column:1/-1">
+                  <label>Audio URL</label>
+                  <input type="url" id="kieVoxUrl" placeholder="https://…/beat.mp3" />
+                </div>
+              </div>
+              <div class="kie-row">
+                <div style="grid-column:1/-1">
+                  <label>Upload audio (Blob → fills URL)</label>
+                  <input type="file" accept="audio/*,.mp3,.wav,.m4a,.flac,.webm" data-kie-blob-target="kieVoxUrl" onchange="kieBlobUploadToField(this)" />
+                </div>
+              </div>
+              <div class="kie-row">
+                <div>
+                  <label>Model</label>
+                  <select id="kieVoxModel">
+                    <option value="V4_5PLUS" selected>V4_5PLUS</option>
+                    <option value="V5">V5</option>
+                    <option value="V5_5">V5_5</option>
+                  </select>
+                </div>
+                <div>
+                  <label>Vocal gender</label>
+                  <select id="kieVoxGender">
+                    <option value="">— Auto —</option>
+                    <option value="m">Male</option>
+                    <option value="f">Female</option>
+                  </select>
+                </div>
+              </div>
+              <div class="kie-row">
+                <div>
+                  <label>Title</label>
+                  <input type="text" id="kieVoxTitle" />
+                </div>
+                <div>
+                  <label>Style</label>
+                  <input type="text" id="kieVoxStyle" placeholder="e.g. Jazz" />
+                </div>
+              </div>
+              <div class="kie-row">
+                <div>
+                  <label>Negative tags (required)</label>
+                  <input type="text" id="kieVoxNeg" placeholder="e.g. screaming" />
+                </div>
+              </div>
+              <div class="kie-row">
+                <div style="grid-column:1/-1">
+                  <label>Prompt / lyrics direction</label>
+                  <textarea id="kieVoxPrompt" rows="3" placeholder="Lyrics or vocal direction; uses Suno lyrics if empty"></textarea>
+                </div>
+              </div>
+              <div class="kie-actions">
+                <button type="button" class="kie-btn" id="kieVoxBtn" onclick="startKieAddVocals()"><i class="fas fa-microphone"></i> Add vocals</button>
+              </div>
+            </div>
+            <div id="kiePanelAlign" class="kie-tab-panel" style="display:none" data-kie-panel="align">
+              <p class="udio-mini">Fetch <strong>word-level timestamps</strong> for a finished Kie track (not for pure instrumentals).</p>
+              <div class="kie-row">
+                <div>
+                  <label>Music task ID</label>
+                  <input type="text" id="kieAlignTaskId" placeholder="Generate / extend task id" />
+                </div>
+                <div>
+                  <label>Audio ID</label>
+                  <input type="text" id="kieAlignAudioId" />
+                </div>
+              </div>
+              <div class="kie-actions">
+                <button type="button" class="kie-btn" id="kieAlignBtn" onclick="startKieTimestampedLyrics()"><i class="fas fa-align-justify"></i> Get aligned lyrics</button>
+              </div>
+            </div>
+            <div id="kiePanelPersona" class="kie-tab-panel" style="display:none" data-kie-panel="persona">
+              <p class="udio-mini">Create a <strong>personaId</strong> after a track is fully generated. Use that id in Generate / Cover / Extend.</p>
+              <div class="kie-row">
+                <div>
+                  <label>Music task ID</label>
+                  <input type="text" id="kiePersonaTaskId" />
+                </div>
+                <div>
+                  <label>Audio ID</label>
+                  <input type="text" id="kiePersonaAudioId" />
+                </div>
+              </div>
+              <div class="kie-row">
+                <div>
+                  <label>Persona name</label>
+                  <input type="text" id="kiePersonaName" placeholder="e.g. Neon Pop Singer" />
+                </div>
+                <div>
+                  <label>Style tag (optional)</label>
+                  <input type="text" id="kiePersonaStyleTag" placeholder="e.g. Electronic Pop" />
+                </div>
+              </div>
+              <div class="kie-row">
+                <div style="grid-column:1/-1">
+                  <label>Description</label>
+                  <textarea id="kiePersonaDesc" rows="2" placeholder="Musical traits, voice, mood…"></textarea>
+                </div>
+              </div>
+              <div class="kie-row">
+                <div>
+                  <label>vocalStart (s)</label>
+                  <input type="number" id="kiePersonaVocalStart" value="0" min="0" step="0.1" />
+                </div>
+                <div>
+                  <label>vocalEnd (s)</label>
+                  <input type="number" id="kiePersonaVocalEnd" value="30" min="0" step="0.1" />
+                </div>
+              </div>
+              <div class="kie-actions">
+                <button type="button" class="kie-btn" id="kiePersonaBtn" onclick="startKieGeneratePersona()"><i class="fas fa-user"></i> Generate persona</button>
+              </div>
+            </div>
+            <div id="kiePanelMidi" class="kie-tab-panel" style="display:none" data-kie-panel="midi">
+              <p class="udio-mini"><strong>MIDI</strong> requires a completed <strong>stem separation</strong> job. Use the <strong>stem task ID</strong> below (filled after Stems finishes), not the original music task.</p>
+              <div class="kie-row">
+                <div>
+                  <label>Stem separation task ID</label>
+                  <input type="text" id="kieMidiStemTaskId" placeholder="From Stems tab after you run it" />
+                </div>
+                <div>
+                  <label>Stem audio ID (optional)</label>
+                  <input type="text" id="kieMidiStemAudioId" placeholder="From vocal-removal record-info" />
+                </div>
+              </div>
+              <div class="kie-actions">
+                <button type="button" class="kie-btn" id="kieMidiBtn" onclick="startKieMidiFromStems()"><i class="fas fa-music"></i> Generate MIDI</button>
+              </div>
+            </div>
+            <div id="kieStatus" class="kie-status" style="display:none"></div>
+            <div id="kieResults" class="kie-results"></div>
           </div>
         </div>
       </div>
@@ -1741,6 +2286,11 @@ async function init() {
   });
   loadUdioSessionKey();
   onUdioBrowserToggle();
+  loadKieSessionFields();
+  kieToggleCustom();
+  kieToggleExtendCustom();
+  kieToggleCoverCustom();
+  kieToggleUpExtCustom();
 }
 function initTheme() {
   if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
@@ -2235,6 +2785,8 @@ function resetAll() {
   currentArtist = '';
   document.getElementById('artistDisplay').style.display = 'none';
   document.getElementById('outputSections').style.display = 'none';
+  resetUdioPanel();
+  resetKiePanel();
   document.getElementById('streamArea').style.display = 'none';
   document.getElementById('errorMsg').style.display = 'none';
   document.getElementById('emptyState').style.display = 'block';
@@ -2495,6 +3047,7 @@ async function generateSong() {
 /* ===== PARSE & DISPLAY ===== */
 function parseAndDisplay(content) {
   resetUdioPanel();
+  resetKiePanel();
   var btn = document.getElementById('generateBtn');
   btn.innerHTML = '<i class="fas fa-bolt"></i> GENERATE SONG';
   btn.disabled = false;
@@ -2625,14 +3178,29 @@ function isUdioComplete(items) {
     return m && m.indexOf('All generated successfully') !== -1;
   });
 }
-function renderUdioPlayers(responseData) {
+function renderUdioPlayers(responseData, requestBody) {
   var el = document.getElementById('udioPlayers');
   var blocks = [];
+  var reqTitle =
+    (requestBody && requestBody.title && String(requestBody.title).trim()) ||
+    (typeof rawTitleContent === 'string' && rawTitleContent.trim()) ||
+    '';
+  var playableCount = 0;
+  for (var j = 0; j < responseData.length; j++) {
+    var x = responseData[j];
+    if (x.audio_url && String(x.audio_url).trim()) playableCount++;
+  }
+  var multi = playableCount > 1;
   for (var i = 0; i < responseData.length; i++) {
     var r = responseData[i];
     if (!r.audio_url || !String(r.audio_url).trim()) continue;
     var safeUrl = escapeAttr(String(r.audio_url));
-    var label = 'Track ' + (blocks.length + 1);
+    var perTrack = r.title && String(r.title).trim();
+    var idx = blocks.length;
+    var label = perTrack || reqTitle || 'Track ' + (idx + 1);
+    if (!perTrack && reqTitle && multi) {
+      label = reqTitle + ' (' + (idx + 1) + ')';
+    }
     if (r.duration) label += ' · ' + r.duration + 's';
     blocks.push(
       '<div class="udio-track">' +
@@ -2709,7 +3277,7 @@ async function runUdioPollAttempt(workId, attempt) {
     }
     if (isUdioComplete(rd)) {
       statusEl.textContent = 'Ready — play below.';
-      renderUdioPlayers(rd);
+      renderUdioPlayers(rd, data.data && data.data.request_body);
       btn.disabled = false;
       return;
     }
@@ -2718,7 +3286,7 @@ async function runUdioPollAttempt(workId, attempt) {
         return r.audio_url && String(r.audio_url).trim();
       });
       if (partial.length) {
-        renderUdioPlayers(partial);
+        renderUdioPlayers(partial, data.data && data.data.request_body);
         statusEl.textContent = 'Partial audio (timeout). Refresh or check Udio for full render.';
       } else {
         statusEl.textContent = 'Timed out before audio URLs appeared.';
@@ -2773,18 +3341,19 @@ async function startUdioGeneration() {
       var dataB = await resB.json().catch(function() {
         return {};
       });
-      if (dataB.code != null && dataB.code !== 200) {
+      var idB = dataB.workId || (dataB.data && dataB.data.task_id);
+      /** Docs allow HTTP 500 with workId still present */
+      if (!idB && dataB.code != null && dataB.code !== 200) {
         throw new Error(dataB.message || dataB.error || 'Udio error');
       }
-      if (!resB.ok && dataB.workId == null && (dataB.data == null || dataB.data.task_id == null)) {
+      if (!idB && !resB.ok) {
         throw new Error(dataB.message || dataB.error || 'Request failed (' + resB.status + ')');
       }
-      var workIdB = dataB.workId || (dataB.data && dataB.data.task_id);
-      if (!workIdB) {
+      if (!idB) {
         throw new Error(dataB.message || 'No task id from Udio');
       }
-      statusEl.textContent = 'Rendering… (often 1–3 min). Task: ' + workIdB;
-      scheduleUdioPoll(workIdB, 0);
+      statusEl.textContent = 'Rendering… (often 1–3 min). Task: ' + idB;
+      scheduleUdioPoll(idB, 0);
     } catch (e) {
       udioDirectMode = false;
       udioDirectKey = '';
@@ -2820,13 +3389,13 @@ async function startUdioGeneration() {
         'Gateway timeout (Vercel limit). Enable “Call Udio from browser” above, paste your key, and try again — or upgrade Vercel.'
       );
     }
-    if (data.code != null && data.code !== 200) {
+    var workId = data.workId || (data.data && data.data.task_id);
+    if (!workId && data.code != null && data.code !== 200) {
       throw new Error(data.message || data.error || 'Udio error');
     }
-    if (!res.ok && data.workId == null && (data.data == null || data.data.task_id == null)) {
+    if (!workId && !res.ok) {
       throw new Error(data.message || data.error || 'Request failed (' + res.status + ')');
     }
-    var workId = data.workId || (data.data && data.data.task_id);
     if (!workId) {
       throw new Error(data.message || 'No task id from Udio');
     }
@@ -2841,6 +3410,894 @@ async function startUdioGeneration() {
     btn.disabled = false;
   } finally {
     clearTimeout(clientTimer);
+  }
+}
+/* ===== KIE.AI SUNO API ===== */
+function kieShowTab(name) {
+  document.querySelectorAll('.kie-tab').forEach(function(b) {
+    if (b.getAttribute('data-kie-tab') === name) {
+      b.classList.add('active');
+    } else {
+      b.classList.remove('active');
+    }
+  });
+  document.querySelectorAll('.kie-tab-panel').forEach(function(p) {
+    p.style.display = p.getAttribute('data-kie-panel') === name ? 'block' : 'none';
+  });
+}
+function kieToggleCustom() {
+  var c = document.getElementById('kieCustomMode');
+  var nw = document.getElementById('kieNonCustomWrap');
+  if (nw) nw.style.display = c && c.checked ? 'none' : 'block';
+}
+function kieToggleExtendCustom() {
+  var c = document.getElementById('kieExtendCustom');
+  var el = document.getElementById('kieExtendCustomFields');
+  if (el) el.style.display = c && c.checked ? 'block' : 'none';
+}
+function kieToggleCoverCustom() {
+  var c = document.getElementById('kieCoverCustom');
+  var nw = document.getElementById('kieCoverNonCustomWrap');
+  if (nw) nw.style.display = c && c.checked ? 'none' : 'block';
+}
+function kieToggleUpExtCustom() {
+  var c = document.getElementById('kieUpExtCustom');
+  var cf = document.getElementById('kieUpExtCustomFields');
+  var sw = document.getElementById('kieUpExtSimpleWrap');
+  if (cf) cf.style.display = c && c.checked ? 'block' : 'none';
+  if (sw) sw.style.display = c && c.checked ? 'none' : 'block';
+}
+function kieLimitsFor(model) {
+  if (model === 'V4') return { style: 200, prompt: 3000, title: 80 };
+  return { style: 1000, prompt: 5000, title: 80 };
+}
+function kieExtendTitleLimit(model) {
+  if (model === 'V4' || model === 'V4_5ALL') return 80;
+  return 100;
+}
+function buildKieGeneratePayload() {
+  var model = document.getElementById('kieModel').value;
+  var lim = kieLimitsFor(model);
+  var custom = document.getElementById('kieCustomMode').checked;
+  var instrumental = isInstrumentalMode;
+  var sl = parseSliderPercents(rawSliderContent || '');
+  var neg = (document.getElementById('kieNegativeTags') && document.getElementById('kieNegativeTags').value.trim()) || '';
+  var persona = (document.getElementById('kiePersonaId') && document.getElementById('kiePersonaId').value.trim()) || '';
+  var vg = document.getElementById('kieVocalGender').value;
+  /** @type {Record<string, unknown>} */
+  var payload = {
+    model: model,
+    customMode: custom,
+    instrumental: instrumental
+  };
+  if (custom) {
+    payload.title = (rawTitleContent || 'Untitled').slice(0, lim.title);
+    payload.style = (rawStyleContent || 'Pop').slice(0, lim.style);
+    if (!instrumental) {
+      payload.prompt = (rawLyricsContent || '').slice(0, lim.prompt);
+    }
+  } else {
+    var sp = document.getElementById('kieSimplePrompt');
+    var idea =
+      (sp && sp.value.trim()) ||
+      ((rawTitleContent || '') + ' ' + (rawStyleContent || '')).trim() ||
+      'A short song idea';
+    payload.prompt = idea.slice(0, 500);
+  }
+  if (neg) payload.negativeTags = neg.slice(0, 500);
+  if (persona) payload.personaId = persona.slice(0, 80);
+  if (vg === 'm' || vg === 'f') payload.vocalGender = vg;
+  if (typeof sl.styleInf === 'number') payload.styleWeight = sl.styleInf;
+  if (typeof sl.weirdness === 'number') payload.weirdnessConstraint = sl.weirdness;
+  if (typeof sl.audio === 'number') payload.audioWeight = sl.audio;
+  return payload;
+}
+function buildKieUploadCoverPayload() {
+  var uploadUrl = document.getElementById('kieCoverUploadUrl').value.trim();
+  if (!uploadUrl) throw new Error('Audio URL required');
+  var model = document.getElementById('kieCoverModel').value;
+  var lim = kieLimitsFor(model);
+  var custom = document.getElementById('kieCoverCustom').checked;
+  var instrumental = document.getElementById('kieCoverInstrumental').checked;
+  var sl = parseSliderPercents(rawSliderContent || '');
+  /** @type {Record<string, unknown>} */
+  var payload = {
+    uploadUrl: uploadUrl,
+    customMode: custom,
+    instrumental: instrumental,
+    model: model
+  };
+  if (custom) {
+    payload.title = (rawTitleContent || 'Cover').slice(0, kieExtendTitleLimit(model));
+    payload.style = (rawStyleContent || 'Pop').slice(0, lim.style);
+    if (!instrumental) payload.prompt = (rawLyricsContent || '').slice(0, lim.prompt);
+  } else {
+    var sp = document.getElementById('kieCoverSimplePrompt');
+    var idea =
+      (sp && sp.value.trim()) ||
+      ((rawTitleContent || '') + ' cover').trim() ||
+      'A short cover idea';
+    payload.prompt = idea.slice(0, 500);
+  }
+  var neg = document.getElementById('kieCoverNeg') && document.getElementById('kieCoverNeg').value.trim();
+  if (neg) payload.negativeTags = neg.slice(0, 500);
+  var persona = document.getElementById('kieCoverPersona') && document.getElementById('kieCoverPersona').value.trim();
+  if (persona) payload.personaId = persona.slice(0, 80);
+  if (typeof sl.styleInf === 'number') payload.styleWeight = sl.styleInf;
+  if (typeof sl.weirdness === 'number') payload.weirdnessConstraint = sl.weirdness;
+  if (typeof sl.audio === 'number') payload.audioWeight = sl.audio;
+  return payload;
+}
+function buildKieUploadExtendPayload() {
+  var uploadUrl = document.getElementById('kieUpExtUrl').value.trim();
+  if (!uploadUrl) throw new Error('Audio URL required');
+  var model = document.getElementById('kieUpExtModel').value;
+  var lim = kieLimitsFor(model);
+  var def = document.getElementById('kieUpExtCustom').checked;
+  var instrumental = document.getElementById('kieUpExtInstrumental').checked;
+  var continueAt = Number(document.getElementById('kieUpExtContinue').value) || 45;
+  var sl = parseSliderPercents(rawSliderContent || '');
+  /** @type {Record<string, unknown>} */
+  var payload = {
+    uploadUrl: uploadUrl,
+    defaultParamFlag: def,
+    instrumental: instrumental,
+    continueAt: continueAt,
+    model: model
+  };
+  if (def) {
+    var pEl = document.getElementById('kieUpExtPrompt');
+    payload.prompt = (
+      pEl && pEl.value.trim() ? pEl.value : rawLyricsContent || 'Extend the piece.'
+    ).slice(0, lim.prompt);
+    var stEl = document.getElementById('kieUpExtStyle');
+    payload.style = (stEl && stEl.value.trim() ? stEl.value : rawStyleContent || 'Pop').slice(0, lim.style);
+    var tiEl = document.getElementById('kieUpExtTitle');
+    payload.title = (tiEl && tiEl.value.trim() ? tiEl.value : rawTitleContent || 'Extended upload').slice(
+      0,
+      kieExtendTitleLimit(model)
+    );
+  } else {
+    var sp = document.getElementById('kieUpExtSimplePrompt');
+    var idea = (sp && sp.value.trim()) || 'Continue the track';
+    payload.prompt = idea.slice(0, 500);
+  }
+  var neg = document.getElementById('kieUpExtNeg') && document.getElementById('kieUpExtNeg').value.trim();
+  if (neg) payload.negativeTags = neg.slice(0, 500);
+  var vg = document.getElementById('kieUpExtGender').value;
+  if (vg === 'm' || vg === 'f') payload.vocalGender = vg;
+  if (typeof sl.styleInf === 'number') payload.styleWeight = sl.styleInf;
+  if (typeof sl.weirdness === 'number') payload.weirdnessConstraint = sl.weirdness;
+  if (typeof sl.audio === 'number') payload.audioWeight = sl.audio;
+  return payload;
+}
+async function kieStartMusicJob(op, payloadBuilder, btnId, errPrefix) {
+  kieClearResults();
+  var btn = document.getElementById(btnId);
+  if (btn) btn.disabled = true;
+  kieSetStatus('Submitting…');
+  try {
+    var payload = typeof payloadBuilder === 'function' ? payloadBuilder() : payloadBuilder;
+    var r = await kieApi(op, payload);
+    if (!r.res.ok || r.data.code !== 200) throw new Error(r.data.msg || 'Kie error');
+    var tid = r.data.data && r.data.data.taskId;
+    if (!tid) throw new Error('No task id');
+    kieSetStatus('Task: ' + tid);
+    await pollKieMusicTask(tid, btn);
+  } catch (e) {
+    kieSetStatus((errPrefix || 'Error') + ': ' + (e.message || String(e)));
+    showToast(e.message || String(e));
+    if (btn) btn.disabled = false;
+  }
+}
+async function pollKieMidiTask(taskId, btn) {
+  var max = 100;
+  for (var i = 0; i < max; i++) {
+    await new Promise(function(r) {
+      setTimeout(r, i === 0 ? 3000 : 6000);
+    });
+    var r = await kieApi('midiInfo', {}, taskId);
+    var d = r.data;
+    if (!r.res.ok || d.code !== 200) {
+      kieSetStatus((d && d.msg) || 'Polling MIDI…');
+      continue;
+    }
+    var row = d.data;
+    var sf = row && row.successFlag;
+    if (sf === 1) {
+      kieClearResults();
+      var midi = row.midiData;
+      appendKieResult(
+        'MIDI',
+        '<pre style="font-size:0.72rem;overflow:auto;max-height:480px;white-space:pre-wrap">' +
+          escapeHistoryHtml(JSON.stringify(midi, null, 2)) +
+          '</pre>'
+      );
+      kieSetStatus('MIDI ready.');
+      if (btn) btn.disabled = false;
+      return;
+    }
+    if (sf === 2 || sf === 3) {
+      throw new Error((row && row.errorMessage) || 'MIDI failed');
+    }
+    kieSetStatus('MIDI: working… (' + (i + 1) + ')');
+  }
+  if (btn) btn.disabled = false;
+  kieSetStatus('MIDI poll timed out.');
+}
+function startKieUploadCover() {
+  kieStartMusicJob('uploadCover', buildKieUploadCoverPayload, 'kieCoverBtn', 'Cover');
+}
+function startKieUploadExtend() {
+  kieStartMusicJob('uploadExtend', buildKieUploadExtendPayload, 'kieUpExtBtn', 'Upload extend');
+}
+function startKieAddInstrumental() {
+  kieStartMusicJob(
+    'addInstrumental',
+    function() {
+      var url = document.getElementById('kieInstrUrl').value.trim();
+      if (!url) throw new Error('Audio URL required');
+      var neg = document.getElementById('kieInstrNeg').value.trim();
+      if (!neg) throw new Error('Negative tags required (Kie API)');
+      var tags = document.getElementById('kieInstrTags').value.trim() || rawStyleContent || 'music';
+      var title =
+        document.getElementById('kieInstrTitle').value.trim() || rawTitleContent || 'Instrumental bed';
+      var sl = parseSliderPercents(rawSliderContent || '');
+      /** @type {Record<string, unknown>} */
+      var payload = {
+        uploadUrl: url,
+        title: title.slice(0, 120),
+        tags: tags.slice(0, 1000),
+        negativeTags: neg.slice(0, 500),
+        model: document.getElementById('kieInstrModel').value
+      };
+      if (typeof sl.styleInf === 'number') payload.styleWeight = sl.styleInf;
+      if (typeof sl.weirdness === 'number') payload.weirdnessConstraint = sl.weirdness;
+      if (typeof sl.audio === 'number') payload.audioWeight = sl.audio;
+      return payload;
+    },
+    'kieInstrBtn',
+    'Instrumental'
+  );
+}
+function startKieAddVocals() {
+  kieStartMusicJob(
+    'addVocals',
+    function() {
+      var url = document.getElementById('kieVoxUrl').value.trim();
+      if (!url) throw new Error('Audio URL required');
+      var neg = document.getElementById('kieVoxNeg').value.trim();
+      if (!neg) throw new Error('Negative tags required');
+      var prompt =
+        (document.getElementById('kieVoxPrompt') && document.getElementById('kieVoxPrompt').value.trim()) ||
+        rawLyricsContent ||
+        'Sing emotionally over this track.';
+      var title =
+        (document.getElementById('kieVoxTitle') && document.getElementById('kieVoxTitle').value.trim()) ||
+        rawTitleContent ||
+        'Vocal add';
+      var style =
+        (document.getElementById('kieVoxStyle') && document.getElementById('kieVoxStyle').value.trim()) ||
+        rawStyleContent ||
+        'Pop';
+      var sl = parseSliderPercents(rawSliderContent || '');
+      /** @type {Record<string, unknown>} */
+      var payload = {
+        uploadUrl: url,
+        prompt: prompt.slice(0, 5000),
+        title: title.slice(0, 120),
+        style: style.slice(0, 1000),
+        negativeTags: neg.slice(0, 500),
+        model: document.getElementById('kieVoxModel').value
+      };
+      var vg = document.getElementById('kieVoxGender').value;
+      if (vg === 'm' || vg === 'f') payload.vocalGender = vg;
+      if (typeof sl.styleInf === 'number') payload.styleWeight = sl.styleInf;
+      if (typeof sl.weirdness === 'number') payload.weirdnessConstraint = sl.weirdness;
+      if (typeof sl.audio === 'number') payload.audioWeight = sl.audio;
+      return payload;
+    },
+    'kieVoxBtn',
+    'Vocals'
+  );
+}
+async function startKieTimestampedLyrics() {
+  kieClearResults();
+  var btn = document.getElementById('kieAlignBtn');
+  var taskId = document.getElementById('kieAlignTaskId').value.trim();
+  var audioId = document.getElementById('kieAlignAudioId').value.trim();
+  if (!taskId || !audioId) {
+    showToast('Task ID and audio ID required');
+    return;
+  }
+  if (btn) btn.disabled = true;
+  kieSetStatus('Fetching aligned lyrics…');
+  try {
+    var r = await kieApi('timestampedLyrics', { taskId: taskId, audioId: audioId });
+    if (!r.res.ok || r.data.code !== 200) throw new Error(r.data.msg || 'Kie error');
+    var dat = r.data.data || {};
+    kieClearResults();
+    appendKieResult(
+      'Aligned words',
+      '<pre style="font-size:0.72rem;overflow:auto;max-height:420px;white-space:pre-wrap">' +
+        escapeHistoryHtml(JSON.stringify(dat.alignedWords || dat, null, 2)) +
+        '</pre>'
+    );
+    if (dat.waveformData && dat.waveformData.length) {
+      appendKieResult(
+        'Waveform (truncated)',
+        '<pre style="font-size:0.72rem">' +
+          escapeHistoryHtml(JSON.stringify(dat.waveformData.slice(0, 80), null, 2)) +
+          '…</pre>'
+      );
+    }
+    kieSetStatus('Done.');
+  } catch (e) {
+    kieSetStatus('Error: ' + (e.message || String(e)));
+    showToast(e.message || String(e));
+  }
+  if (btn) btn.disabled = false;
+}
+async function startKieGeneratePersona() {
+  kieClearResults();
+  var btn = document.getElementById('kiePersonaBtn');
+  var taskId = document.getElementById('kiePersonaTaskId').value.trim();
+  var audioId = document.getElementById('kiePersonaAudioId').value.trim();
+  var name = document.getElementById('kiePersonaName').value.trim();
+  var desc = document.getElementById('kiePersonaDesc').value.trim();
+  if (!taskId || !audioId || !name || !desc) {
+    showToast('Task ID, audio ID, name, and description required');
+    return;
+  }
+  if (btn) btn.disabled = true;
+  kieSetStatus('Creating persona…');
+  try {
+    /** @type {Record<string, unknown>} */
+    var payload = {
+      taskId: taskId,
+      audioId: audioId,
+      name: name.slice(0, 120),
+      description: desc.slice(0, 2000),
+      vocalStart: Number(document.getElementById('kiePersonaVocalStart').value) || 0,
+      vocalEnd: Number(document.getElementById('kiePersonaVocalEnd').value) || 30
+    };
+    var st = document.getElementById('kiePersonaStyleTag').value.trim();
+    if (st) payload.style = st.slice(0, 200);
+    var r = await kieApi('generatePersona', payload);
+    if (!r.res.ok || r.data.code !== 200) throw new Error(r.data.msg || 'Kie error');
+    var pid = r.data.data && r.data.data.personaId;
+    kieClearResults();
+    appendKieResult(
+      'Persona',
+      '<p><strong>personaId</strong> (paste into Generate / Cover):</p><p><code style="word-break:break-all">' +
+        escapeHistoryHtml(pid || '') +
+        '</code></p>'
+    );
+    var pe = document.getElementById('kiePersonaId');
+    if (pe && pid) pe.value = pid;
+    var ce = document.getElementById('kieCoverPersona');
+    if (ce && pid) ce.value = pid;
+    kieSetStatus('Persona created.');
+  } catch (e) {
+    kieSetStatus('Error: ' + (e.message || String(e)));
+    showToast(e.message || String(e));
+  }
+  if (btn) btn.disabled = false;
+}
+async function startKieMidiFromStems() {
+  kieClearResults();
+  var btn = document.getElementById('kieMidiBtn');
+  var stemTask = document.getElementById('kieMidiStemTaskId').value.trim();
+  if (!stemTask) {
+    showToast('Stem separation task ID required');
+    return;
+  }
+  var optAudio = document.getElementById('kieMidiStemAudioId').value.trim();
+  if (btn) btn.disabled = true;
+  kieSetStatus('Starting MIDI job…');
+  try {
+    /** @type {Record<string, unknown>} */
+    var payload = { taskId: stemTask };
+    if (optAudio) payload.audioId = optAudio;
+    var r = await kieApi('midiGenerate', payload);
+    if (!r.res.ok || r.data.code !== 200) throw new Error(r.data.msg || 'Kie error');
+    var tid = r.data.data && r.data.data.taskId;
+    if (!tid) throw new Error('No MIDI task id');
+    await pollKieMidiTask(tid, btn);
+  } catch (e) {
+    kieSetStatus('Error: ' + (e.message || String(e)));
+    showToast(e.message || String(e));
+    if (btn) btn.disabled = false;
+  }
+}
+async function kieApi(op, payload, taskId) {
+  /** @type {Record<string, unknown>} */
+  var body = { op: op, payload: payload || {} };
+  if (taskId) body.taskId = taskId;
+  var res = await fetch('/api/kie-api', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  var data = await res.json().catch(function() {
+    return {};
+  });
+  return { res: res, data: data };
+}
+function kieSetStatus(msg) {
+  var el = document.getElementById('kieStatus');
+  if (!el) return;
+  el.style.display = 'block';
+  el.textContent = msg;
+}
+/** Vercel Blob client upload (browser); server route /api/blob-upload. */
+var KIE_BLOB_CLIENT_ESM = 'https://esm.sh/@vercel/blob@2.3.3/client';
+async function kieBlobUploadToField(input) {
+  var targetId = input && input.getAttribute('data-kie-blob-target');
+  var file = input && input.files && input.files[0];
+  if (!targetId || !file) return;
+  kieSetStatus('Uploading to Vercel Blob…');
+  try {
+    var mod = await import(KIE_BLOB_CLIENT_ESM);
+    var blob = await mod.upload(file.name, file, {
+      access: 'public',
+      handleUploadUrl: location.origin + '/api/blob-upload',
+      multipart: file.size > 4 * 1024 * 1024,
+    });
+    var field = document.getElementById(targetId);
+    if (field) field.value = blob.url;
+    kieSetStatus('Public Blob URL filled — run the Kie action when ready.');
+  } catch (e) {
+    var msg = e && e.message ? e.message : String(e);
+    kieSetStatus(
+      'Blob upload failed: ' +
+        msg +
+        ' — add a Blob store and BLOB_READ_WRITE_TOKEN (see README / .env.example).'
+    );
+  }
+  input.value = '';
+}
+function kieClearResults() {
+  var r = document.getElementById('kieResults');
+  if (r) r.innerHTML = '';
+}
+function resetKiePanel() {
+  kieClearResults();
+  var s = document.getElementById('kieStatus');
+  if (s) {
+    s.style.display = 'none';
+    s.textContent = '';
+  }
+  var g = document.getElementById('kieGenerateBtn');
+  if (g) g.disabled = false;
+}
+function loadKieSessionFields() {
+  try {
+    var t = sessionStorage.getItem('kie_last_music_task');
+    var a = sessionStorage.getItem('kie_last_audio_id');
+    if (t) {
+      ['kieMp4TaskId', 'kieStemTaskId', 'kieWavTaskId'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el && !el.value) el.value = t;
+      });
+    }
+    if (a) {
+      ['kieMp4AudioId', 'kieStemAudioId', 'kieWavAudioId', 'kieExtendAudioId', 'kieAlignAudioId', 'kiePersonaAudioId', 'kieMidiStemAudioId'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el && !el.value) el.value = a;
+      });
+    }
+    var st = sessionStorage.getItem('kie_last_stem_task');
+    if (st) {
+      var mid = document.getElementById('kieMidiStemTaskId');
+      if (mid && !mid.value) mid.value = st;
+    }
+  } catch (e) {}
+}
+function persistKieMusic(taskId, suno) {
+  try {
+    sessionStorage.setItem('kie_last_music_task', taskId);
+    var first = suno && suno[0];
+    if (first && first.id) sessionStorage.setItem('kie_last_audio_id', first.id);
+  } catch (e) {}
+  loadKieSessionFields();
+}
+function fillKieAuxFields(taskId, suno) {
+  var first = suno && suno[0];
+  var aid = first && first.id;
+  var set = function(id, val) {
+    var el = document.getElementById(id);
+    if (el) el.value = val;
+  };
+  set('kieMp4TaskId', taskId);
+  set('kieMp4AudioId', aid || '');
+  set('kieStemTaskId', taskId);
+  set('kieStemAudioId', aid || '');
+  set('kieWavTaskId', taskId);
+  set('kieWavAudioId', aid || '');
+  set('kieExtendAudioId', aid || '');
+  set('kieAlignTaskId', taskId);
+  set('kieAlignAudioId', aid || '');
+  set('kiePersonaTaskId', taskId);
+  set('kiePersonaAudioId', aid || '');
+}
+function renderKieMusicBlock(title, suno) {
+  var blocks = [];
+  for (var i = 0; i < suno.length; i++) {
+    var r = suno[i];
+    var rawU = r && (r.audioUrl || r.audio_url);
+    if (!r || !rawU) continue;
+    var safeUrl = escapeAttr(String(rawU));
+    var label = (r.title && String(r.title).trim()) || title + ' — track ' + (blocks.length + 1);
+    if (r.duration) label += ' · ' + r.duration + 's';
+    blocks.push(
+      '<div class="udio-track">' +
+        '<p class="udio-track-label">' + escapeHistoryHtml(label) + '</p>' +
+        '<audio controls preload="metadata" src="' + safeUrl + '" style="width:100%"></audio>' +
+        '<p class="udio-open-link"><a href="' + safeUrl + '" target="_blank" rel="noopener noreferrer">Open audio</a></p>' +
+      '</div>'
+    );
+  }
+  return blocks.join('');
+}
+function appendKieResult(htmlTitle, innerHtml) {
+  var wrap = document.getElementById('kieResults');
+  if (!wrap) return;
+  wrap.insertAdjacentHTML(
+    'beforeend',
+    '<div class="kie-result-block"><h4>' + escapeHistoryHtml(htmlTitle) + '</h4>' + innerHtml + '</div>'
+  );
+}
+async function pollKieMusicTask(taskId, btn) {
+  var max = 90;
+  for (var attempt = 0; attempt < max; attempt++) {
+    await new Promise(function(r) {
+      setTimeout(r, attempt === 0 ? 2500 : 6000);
+    });
+    var r = await kieApi('recordInfo', {}, taskId);
+    var d = r.data;
+    if (!r.res.ok || d.code !== 200) {
+      kieSetStatus((d && d.msg) || 'Polling… (' + (attempt + 1) + ')');
+      continue;
+    }
+    var row = d.data;
+    var st = row && row.status;
+    var resp = row && row.response;
+    var suno = resp && resp.sunoData;
+    if (st === 'FIRST_SUCCESS' && suno && suno.length) {
+      persistKieMusic(taskId, suno);
+      fillKieAuxFields(taskId, suno);
+      kieClearResults();
+      appendKieResult('Preview', renderKieMusicBlock('Kie', suno));
+      kieSetStatus('Kie: first track ready — waiting for final… (' + (attempt + 1) + ')');
+    }
+    if (st === 'SUCCESS' && suno && suno.length) {
+      persistKieMusic(taskId, suno);
+      fillKieAuxFields(taskId, suno);
+      kieClearResults();
+      appendKieResult('Tracks', renderKieMusicBlock('Kie', suno));
+      kieSetStatus('Ready.');
+      if (btn) btn.disabled = false;
+      return;
+    }
+    if (
+      st === 'CREATE_TASK_FAILED' ||
+      st === 'GENERATE_AUDIO_FAILED' ||
+      st === 'SENSITIVE_WORD_ERROR' ||
+      st === 'CALLBACK_EXCEPTION'
+    ) {
+      throw new Error((row && row.errorMessage) || st || 'Kie failed');
+    }
+    kieSetStatus('Kie: ' + (st || '…') + ' (' + (attempt + 1) + '/' + max + ')');
+  }
+  if (btn) btn.disabled = false;
+  kieSetStatus('Timed out — check Kie or try again.');
+}
+async function pollKieLyricsTask(taskId, btn) {
+  var max = 60;
+  for (var i = 0; i < max; i++) {
+    await new Promise(function(r) {
+      setTimeout(r, i === 0 ? 2500 : 5000);
+    });
+    var r = await kieApi('lyricsInfo', {}, taskId);
+    var d = r.data;
+    if (!r.res.ok || d.code !== 200) {
+      kieSetStatus((d && d.msg) || 'Polling lyrics…');
+      continue;
+    }
+    var row = d.data;
+    if (row && row.status === 'SUCCESS') {
+      var list = row.response && row.response.data;
+      kieClearResults();
+      if (list && list.length) {
+        for (var j = 0; j < list.length; j++) {
+          var item = list[j];
+          if (!item || item.status === 'failed') continue;
+          var tit = (item.title && item.title.trim()) || 'Variation ' + (j + 1);
+          var tx = (item.text && String(item.text)) || '';
+          appendKieResult(
+            tit,
+            '<pre style="white-space:pre-wrap;font-size:0.8rem;margin:0;line-height:1.45">' +
+              escapeHistoryHtml(tx) +
+              '</pre>'
+          );
+        }
+      }
+      kieSetStatus('Lyrics ready.');
+      if (btn) btn.disabled = false;
+      return;
+    }
+    if (
+      row &&
+      (row.status === 'CREATE_TASK_FAILED' ||
+        row.status === 'GENERATE_LYRICS_FAILED' ||
+        row.status === 'SENSITIVE_WORD_ERROR')
+    ) {
+      throw new Error(row.errorMessage || row.status);
+    }
+    kieSetStatus('Lyrics: ' + (row && row.status) + ' (' + (i + 1) + ')');
+  }
+  if (btn) btn.disabled = false;
+  kieSetStatus('Lyrics poll timed out.');
+}
+async function pollKieFlagTask(pollOp, taskId, btn, title, extractHtml) {
+  var max = 80;
+  for (var i = 0; i < max; i++) {
+    await new Promise(function(r) {
+      setTimeout(r, i === 0 ? 3000 : 6000);
+    });
+    var r = await kieApi(pollOp, {}, taskId);
+    var d = r.data;
+    if (!r.res.ok || d.code !== 200) {
+      kieSetStatus((d && d.msg) || 'Polling…');
+      continue;
+    }
+    var row = d.data;
+    var flag = row && row.successFlag;
+    if (flag === 'SUCCESS') {
+      var html = extractHtml(row);
+      kieClearResults();
+      appendKieResult(title, html);
+      kieSetStatus('Ready.');
+      if (btn) btn.disabled = false;
+      return;
+    }
+    if (
+      flag === 'CREATE_TASK_FAILED' ||
+      flag === 'GENERATE_MP4_FAILED' ||
+      flag === 'GENERATE_WAV_FAILED' ||
+      flag === 'GENERATE_AUDIO_FAILED'
+    ) {
+      throw new Error(row.errorMessage || flag);
+    }
+    kieSetStatus((title || 'Task') + ': ' + (flag || 'PENDING') + ' (' + (i + 1) + ')');
+  }
+  if (btn) btn.disabled = false;
+  kieSetStatus('Timed out.');
+}
+function kieHtmlLinksFromStemResponse(resp) {
+  if (!resp || typeof resp !== 'object') return '<p>No data.</p>';
+  var parts = [];
+  for (var k in resp) {
+    if (!Object.prototype.hasOwnProperty.call(resp, k)) continue;
+    var v = resp[k];
+    if (typeof v !== 'string' || !/^https?:\/\//i.test(v)) continue;
+    parts.push(
+      '<div class="kie-stem-list"><strong>' +
+        escapeHistoryHtml(k) +
+        ':</strong> <a href="' +
+        escapeAttr(v) +
+        '" target="_blank" rel="noopener">' +
+        escapeHistoryHtml(v) +
+        '</a></div>'
+    );
+  }
+  return parts.length ? parts.join('') : '<pre style="font-size:0.75rem">' + escapeHistoryHtml(JSON.stringify(resp, null, 2)) + '</pre>';
+}
+async function startKieGenerate() {
+  kieClearResults();
+  var btn = document.getElementById('kieGenerateBtn');
+  var statusEl = document.getElementById('kieStatus');
+  if (statusEl) statusEl.style.display = 'block';
+  if (btn) btn.disabled = true;
+  try {
+    var payload = buildKieGeneratePayload();
+    var r = await kieApi('generate', payload);
+    if (!r.res.ok || r.data.code !== 200) {
+      throw new Error(r.data.msg || 'Kie rejected request');
+    }
+    var tid = r.data.data && r.data.data.taskId;
+    if (!tid) throw new Error('No task id from Kie');
+    kieSetStatus('Submitted — task ' + tid);
+    await pollKieMusicTask(tid, btn);
+  } catch (e) {
+    kieSetStatus('Error: ' + (e.message || String(e)));
+    showToast(e.message || String(e));
+    if (btn) btn.disabled = false;
+  }
+}
+async function startKieLyricsOnly() {
+  kieClearResults();
+  var btn = document.getElementById('kieLyricsBtn');
+  var ta = document.getElementById('kieLyricsPrompt');
+  var prompt = (ta && ta.value.trim()) || '';
+  if (!prompt) {
+    showToast('Enter a lyrics prompt');
+    return;
+  }
+  if (prompt.length > 200) prompt = prompt.slice(0, 200);
+  if (btn) btn.disabled = true;
+  kieSetStatus('Submitting lyrics task…');
+  try {
+    var r = await kieApi('lyrics', { prompt: prompt });
+    if (!r.res.ok || r.data.code !== 200) throw new Error(r.data.msg || 'Kie error');
+    var tid = r.data.data && r.data.data.taskId;
+    if (!tid) throw new Error('No task id');
+    await pollKieLyricsTask(tid, btn);
+  } catch (e) {
+    kieSetStatus('Error: ' + (e.message || String(e)));
+    showToast(e.message || String(e));
+    if (btn) btn.disabled = false;
+  }
+}
+async function startKieExtend() {
+  kieClearResults();
+  var btn = document.getElementById('kieExtendBtn');
+  var audioId = document.getElementById('kieExtendAudioId').value.trim();
+  if (!audioId) {
+    showToast('Audio ID required');
+    return;
+  }
+  var model = document.getElementById('kieExtendModel').value;
+  var custom = document.getElementById('kieExtendCustom').checked;
+  /** @type {Record<string, unknown>} */
+  var payload = {
+    defaultParamFlag: custom,
+    audioId: audioId,
+    model: model
+  };
+  if (custom) {
+    var lim = kieLimitsFor(model);
+    payload.continueAt = Number(document.getElementById('kieContinueAt').value) || 60;
+    payload.prompt = (document.getElementById('kieExtendPrompt').value || 'Continue the song.').slice(0, lim.prompt);
+    payload.style = (document.getElementById('kieExtendStyle').value || rawStyleContent || 'Pop').slice(0, lim.style);
+    payload.title = (document.getElementById('kieExtendTitle').value || rawTitleContent || 'Extended').slice(
+      0,
+      kieExtendTitleLimit(model)
+    );
+  }
+  if (btn) btn.disabled = true;
+  kieSetStatus('Extending…');
+  try {
+    var r = await kieApi('extend', payload);
+    if (!r.res.ok || r.data.code !== 200) throw new Error(r.data.msg || 'Kie error');
+    var tid = r.data.data && r.data.data.taskId;
+    if (!tid) throw new Error('No task id');
+    await pollKieMusicTask(tid, btn);
+  } catch (e) {
+    kieSetStatus('Error: ' + (e.message || String(e)));
+    showToast(e.message || String(e));
+    if (btn) btn.disabled = false;
+  }
+}
+async function startKieMp4() {
+  kieClearResults();
+  var btn = document.getElementById('kieMp4Btn');
+  var taskId = document.getElementById('kieMp4TaskId').value.trim();
+  var audioId = document.getElementById('kieMp4AudioId').value.trim();
+  if (!taskId || !audioId) {
+    showToast('Task ID and audio ID required');
+    return;
+  }
+  var author = document.getElementById('kieMp4Author').value.trim();
+  var domain = document.getElementById('kieMp4Domain').value.trim();
+  /** @type {Record<string, unknown>} */
+  var payload = { taskId: taskId, audioId: audioId };
+  if (author) payload.author = author.slice(0, 50);
+  if (domain) payload.domainName = domain.slice(0, 50);
+  if (btn) btn.disabled = true;
+  kieSetStatus('Creating video…');
+  try {
+    var r = await kieApi('mp4', payload);
+    var okMp4 = r.res.ok && (r.data.code === 200 || r.data.code === 0);
+    if (!okMp4) throw new Error(r.data.msg || 'Kie error');
+    var tid = r.data.data && r.data.data.taskId;
+    if (!tid) throw new Error('No video task id');
+    await pollKieFlagTask(
+      'mp4Info',
+      tid,
+      btn,
+      'Music video',
+      function(row) {
+        var vu = row.response && row.response.videoUrl;
+        if (vu) {
+          return (
+            '<p><a href="' +
+            escapeAttr(vu) +
+            '" target="_blank" rel="noopener">Download / open video</a></p><video controls style="width:100%;max-height:360px" src="' +
+            escapeAttr(vu) +
+            '"></video>'
+          );
+        }
+        return kieHtmlLinksFromStemResponse(row.response || row);
+      }
+    );
+  } catch (e) {
+    kieSetStatus('Error: ' + (e.message || String(e)));
+    showToast(e.message || String(e));
+    if (btn) btn.disabled = false;
+  }
+}
+async function startKieWav() {
+  kieClearResults();
+  var btn = document.getElementById('kieWavBtn');
+  var taskId = document.getElementById('kieWavTaskId').value.trim();
+  var audioId = document.getElementById('kieWavAudioId').value.trim();
+  if (!taskId || !audioId) {
+    showToast('Task ID and audio ID required');
+    return;
+  }
+  if (btn) btn.disabled = true;
+  kieSetStatus('Converting to WAV…');
+  try {
+    var r = await kieApi('wav', { taskId: taskId, audioId: audioId });
+    if (!r.res.ok || r.data.code !== 200) throw new Error(r.data.msg || 'Kie error');
+    var tid = r.data.data && r.data.data.taskId;
+    if (!tid) throw new Error('No WAV task id');
+    await pollKieFlagTask(
+      'wavInfo',
+      tid,
+      btn,
+      'WAV file',
+      function(row) {
+        var w = row.response && row.response.audioWavUrl;
+        if (w) {
+          return '<p><a href="' + escapeAttr(w) + '" target="_blank" rel="noopener">' + escapeHistoryHtml(w) + '</a></p>';
+        }
+        return kieHtmlLinksFromStemResponse(row.response || row);
+      }
+    );
+  } catch (e) {
+    kieSetStatus('Error: ' + (e.message || String(e)));
+    showToast(e.message || String(e));
+    if (btn) btn.disabled = false;
+  }
+}
+async function startKieStems() {
+  kieClearResults();
+  var btn = document.getElementById('kieStemBtn');
+  var taskId = document.getElementById('kieStemTaskId').value.trim();
+  var audioId = document.getElementById('kieStemAudioId').value.trim();
+  var typ = document.getElementById('kieStemType').value;
+  if (!taskId || !audioId) {
+    showToast('Task ID and audio ID required');
+    return;
+  }
+  if (btn) btn.disabled = true;
+  kieSetStatus('Separating stems…');
+  try {
+    var r = await kieApi('vocalRemoval', { taskId: taskId, audioId: audioId, type: typ });
+    if (!r.res.ok || r.data.code !== 200) throw new Error(r.data.msg || 'Kie error');
+    var tid = r.data.data && r.data.data.taskId;
+    if (!tid) throw new Error('No stem task id');
+    try {
+      sessionStorage.setItem('kie_last_stem_task', tid);
+    } catch (e2) {}
+    var midiEl = document.getElementById('kieMidiStemTaskId');
+    if (midiEl) midiEl.value = tid;
+    await pollKieFlagTask(
+      'vocalInfo',
+      tid,
+      btn,
+      'Stems',
+      function(row) {
+        return kieHtmlLinksFromStemResponse(row.response || row);
+      }
+    );
+  } catch (e) {
+    kieSetStatus('Error: ' + (e.message || String(e)));
+    showToast(e.message || String(e));
+    if (btn) btn.disabled = false;
   }
 }
 /* ===== GENERATION HISTORY (Postgres + localStorage fallback) ===== */

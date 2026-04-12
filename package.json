@@ -4,10 +4,15 @@
   "type": "module",
   "description": "Suno God Mode - AI-powered song generator",
   "scripts": {
-    "dev": "vercel dev",
+    "dev": "npx --yes serve . -l 3000",
+    "dev:vercel": "vercel dev",
     "deploy": "vercel"
   },
   "dependencies": {
+    "@vercel/blob": "^2.3.3",
     "postgres": "^3.4.9"
+  },
+  "devDependencies": {
+    "vercel": "^50.44.0"
   }
 }

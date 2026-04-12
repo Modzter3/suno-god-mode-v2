@@ -10,7 +10,15 @@ Static web app plus Vercel Edge functions that call [OpenRouter](https://openrou
    - `OPENROUTER_API_KEY` — your OpenRouter API key (required).
    - `OPENROUTER_MODEL` — optional; if unset, the app defaults to `openai/gpt-4o-mini`. The API also sends **fallback models** so a single unavailable slug does not fail the whole request (see [model fallbacks](https://openrouter.ai/docs/guides/routing/model-fallbacks)).
    - `OPENROUTER_SITE_URL` — optional; defaults to `https://$VERCEL_URL` for the `HTTP-Referer` header OpenRouter expects.
-4. Deploy. The app uses `/api/models` (live OpenRouter model catalog for the picker), `/api/generate` (concept), `/api/generate-stream` (song, streaming), `/api/history` (optional saved generations), and optionally `/api/udio-generate` + `/api/udio-feed` for [Udio](https://udioapi.pro/docs) (Chirp) audio rendering.
+   - **`BLOB_READ_WRITE_TOKEN`** — optional; create a [Vercel Blob](https://vercel.com/docs/storage/vercel-blob) store on the project to enable **Upload audio** on Kie tabs (public URLs for Kie `uploadUrl`).
+4. Deploy. The app uses `/api/models` (live OpenRouter model catalog for the picker), `/api/generate` (concept), `/api/generate-stream` (song, streaming), `/api/history` (optional saved generations), optionally `/api/udio-generate` + `/api/udio-feed` for [Udio](https://udioapi.pro/docs) (Chirp) audio rendering, `/api/kie-api` + `/api/kie-callback` for the [Kie.ai Suno API](https://docs.kie.ai/suno-api/quickstart) (generate, lyrics, extend, music video, stems, WAV), and optionally **`/api/blob-upload`** (Vercel Blob client uploads for Kie audio URLs).
+
+### Kie.ai (optional)
+
+- After **Generate**, open **Kie.ai Suno API** for Suno-style flows and extras from [their docs](https://docs.kie.ai/suno-api/quickstart): **Generate**, **Lyrics only**, **Extend** (platform audio), **Music video**, **Stems** (vocal / 12-stem), **WAV**, **Cover upload** (URL), **Upload extend** (URL), **+ Instrumental**, **+ Vocals**, **Align lyrics** (timestamped), **Persona**, **MIDI** (after a stem job — use the **stem task id**).
+- Set **`KIE_API_KEY`** (Bearer token from [kie.ai/api-key](https://kie.ai/api-key)). Kie requires a webhook URL on most create calls; the app defaults to **`https://<your-deployment>/api/kie-callback`**. If local `http` dev fails their URL validation, set **`KIE_CALLBACK_URL`** to your **HTTPS** production callback (see `.env.example`).
+- Upload-style actions need a **public HTTPS URL** to your audio file. You can **paste any direct link**, or use **Vercel Blob**: create a **Blob** store (Vercel → Storage), ensure **`BLOB_READ_WRITE_TOKEN`** is set (`vercel env pull` locally), then use **“Upload audio”** on the Kie tabs — the UI fills the URL field with a public blob URL Kie can fetch.
+- Billing and moderation are enforced by Kie; see their docs and pricing.
 
 ### Udio (optional in-app audio)
 
