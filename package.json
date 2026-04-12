@@ -5,8 +5,10 @@
   "description": "Suno God Mode - AI-powered song generator",
   "scripts": {
     "dev": "npx --yes serve . -l 3000",
-    "dev:vercel": "vercel dev",
-    "deploy": "vercel"
+    "dev:vercel": "npx vercel dev",
+    "vercel:link": "npx vercel link",
+    "vercel:env": "npx vercel env pull .env.local",
+    "deploy": "npx vercel"
   },
   "dependencies": {
     "@vercel/blob": "^2.3.3",

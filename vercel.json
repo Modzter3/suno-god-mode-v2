@@ -15,6 +15,9 @@
     },
     "api/blob-upload.js": {
       "maxDuration": 60
+    },
+    "api/blob-put-simple.js": {
+      "maxDuration": 60
     }
   }
 }

@@ -738,6 +738,16 @@ html.light .audio-player-card__play { color: #fff; }
 }
 .kie-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .kie-status { margin-top: 10px; font-size: 0.8rem; color: var(--text-muted); line-height: 1.4; }
+.kie-status-banner {
+  margin-top: 0;
+  margin-bottom: 4px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--accent);
+  word-break: break-word;
+}
 .kie-results { margin-top: 12px; display: flex; flex-direction: column; gap: 12px; }
 .kie-result-block { padding: 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-elevated); overflow: visible; }
 .kie-result-block h4 { margin: 0 0 8px; font-size: 0.85rem; color: var(--accent); }
@@ -1375,6 +1385,7 @@ html.light .chip.suggested {
           </div>
           <div class="output-body udio-body">
             <p class="udio-hint">Uses <a href="https://docs.kie.ai/suno-api/quickstart" target="_blank" rel="noopener">Kie.ai&rsquo;s Suno API</a> (separate from Udio). Set <code>KIE_API_KEY</code> on Vercel or in <code>.env.local</code> for <code>vercel dev</code>. Callback URL defaults to <code>/api/kie-callback</code> on your deployment; set <code>KIE_CALLBACK_URL</code> if local http callbacks fail. On each finished track, use the <strong>⋮</strong> menu to jump to a Kie tab with task ID, audio ID, or URL filled in (like Suno&rsquo;s track menu).</p>
+            <div id="kieStatus" class="kie-status kie-status-banner" style="display:none"></div>
             <div class="kie-tabs" role="tablist">
               <button type="button" class="kie-tab active" data-kie-tab="generate" onclick="kieShowTab('generate')">Generate</button>
               <button type="button" class="kie-tab" data-kie-tab="lyrics" onclick="kieShowTab('lyrics')">Lyrics only</button>
@@ -1565,16 +1576,16 @@ html.light .chip.suggested {
               </div>
             </div>
             <div id="kiePanelCover" class="kie-tab-panel" style="display:none" data-kie-panel="cover">
-              <p class="udio-mini">Cover from a <strong>public URL</strong> to your audio file (≤8 min), or upload below if <strong>Vercel Blob</strong> is configured. Same task polling as Generate.</p>
+              <p class="udio-mini">Kie needs a <strong>direct link to the audio file</strong> (the URL should end in <code>.mp3</code> / <code>.wav</code> or serve raw audio). <strong>Dropbox / Google Drive &ldquo;share&rdquo; links are not that</strong> — they are web pages, which is why Kie reports source errors. Use <strong>Choose file</strong> below if you use <strong>Vercel Blob</strong> (<code>BLOB_READ_WRITE_TOKEN</code> on the project + <code>npm run dev:vercel</code> locally, or your live deployment). Status after you pick a file appears in the <strong>green banner above the Kie tabs</strong>.</p>
               <div class="kie-row">
                 <div style="grid-column:1/-1">
                   <label>Audio file URL</label>
-                  <input type="url" id="kieCoverUploadUrl" placeholder="https://…/your-audio.mp3" />
+                  <input type="text" id="kieCoverUploadUrl" inputmode="url" autocomplete="off" placeholder="https://…/your-audio.mp3" />
                 </div>
               </div>
               <div class="kie-row">
                 <div style="grid-column:1/-1">
-                  <label>Upload audio (Blob → fills URL)</label>
+                  <label>Choose file → uploads to Vercel Blob → fills URL above</label>
                   <input type="file" accept="audio/*,.mp3,.wav,.m4a,.flac,.webm" data-kie-blob-target="kieCoverUploadUrl" onchange="kieBlobUploadToField(this)" />
                 </div>
               </div>
@@ -1624,7 +1635,7 @@ html.light .chip.suggested {
               <div class="kie-row">
                 <div style="grid-column:1/-1">
                   <label>Audio file URL</label>
-                  <input type="url" id="kieUpExtUrl" placeholder="https://…/your-audio.mp3" />
+                  <input type="text" id="kieUpExtUrl" inputmode="url" autocomplete="off" placeholder="https://…/your-audio.mp3" />
                 </div>
               </div>
               <div class="kie-row">
@@ -1705,7 +1716,7 @@ html.light .chip.suggested {
               <div class="kie-row">
                 <div style="grid-column:1/-1">
                   <label>Audio URL</label>
-                  <input type="url" id="kieInstrUrl" placeholder="https://…/vocals.mp3" />
+                  <input type="text" id="kieInstrUrl" inputmode="url" autocomplete="off" placeholder="https://…/vocals.mp3" />
                 </div>
               </div>
               <div class="kie-row">
@@ -1747,7 +1758,7 @@ html.light .chip.suggested {
               <div class="kie-row">
                 <div style="grid-column:1/-1">
                   <label>Audio URL</label>
-                  <input type="url" id="kieVoxUrl" placeholder="https://…/beat.mp3" />
+                  <input type="text" id="kieVoxUrl" inputmode="url" autocomplete="off" placeholder="https://…/beat.mp3" />
                 </div>
               </div>
               <div class="kie-row">
@@ -1874,7 +1885,6 @@ html.light .chip.suggested {
                 <button type="button" class="kie-btn" id="kieMidiBtn" onclick="startKieMidiFromStems()"><i class="fas fa-music"></i> Generate MIDI</button>
               </div>
             </div>
-            <div id="kieStatus" class="kie-status" style="display:none"></div>
             <div id="kieResults" class="kie-results"></div>
           </div>
         </div>
@@ -4384,30 +4394,95 @@ function kieSetStatus(msg) {
   el.style.display = 'block';
   el.textContent = msg;
 }
-/** Vercel Blob client upload (browser); server route /api/blob-upload. */
+/** Large files: browser client → /api/blob-upload. Small files: FormData → /api/blob-put-simple (no CDN). */
 var KIE_BLOB_CLIENT_ESM = 'https://esm.sh/@vercel/blob@2.3.3/client';
+var KIE_BLOB_CLIENT_JSdelivr = 'https://cdn.jsdelivr.net/npm/@vercel/blob@2.3.3/dist/client.js';
+var KIE_BLOB_SIMPLE_MAX = 4 * 1024 * 1024;
+async function kieLoadBlobClientModule() {
+  try {
+    return await import(KIE_BLOB_CLIENT_ESM);
+  } catch (e1) {
+    return await import(KIE_BLOB_CLIENT_JSdelivr);
+  }
+}
 async function kieBlobUploadToField(input) {
   var targetId = input && input.getAttribute('data-kie-blob-target');
   var file = input && input.files && input.files[0];
   if (!targetId || !file) return;
+  var field = document.getElementById(targetId);
+  if (!field) {
+    showToast('Missing URL field');
+    return;
+  }
   kieSetStatus('Uploading to Vercel Blob…');
+  showToast('Uploading…');
   try {
-    var mod = await import(KIE_BLOB_CLIENT_ESM);
-    var blob = await mod.upload(file.name, file, {
-      access: 'public',
-      handleUploadUrl: location.origin + '/api/blob-upload',
-      multipart: file.size > 4 * 1024 * 1024,
-    });
-    var field = document.getElementById(targetId);
-    if (field) field.value = blob.url;
-    kieSetStatus('Public Blob URL filled — run the Kie action when ready.');
+    var url;
+    if (file.size <= KIE_BLOB_SIMPLE_MAX) {
+      var fd = new FormData();
+      fd.append('file', file, file.name);
+      var res = await fetch('/api/blob-put-simple', { method: 'POST', body: fd });
+      var rawText = await res.text();
+      /** @type {Record<string, unknown>} */
+      var data = {};
+      try {
+        data = JSON.parse(rawText);
+      } catch (eJ) {
+        if (res.status === 404) {
+          throw new Error(
+            'Upload API not found. Use your live Vercel URL, or locally run `npm run dev:vercel` (not `npm run dev`).'
+          );
+        }
+        throw new Error('Server did not return JSON. First bytes: ' + rawText.slice(0, 100));
+      }
+      if (!res.ok) {
+        var errMsg = (data && data.error) || 'Upload failed (' + res.status + ')';
+        if (res.status === 503 && String(errMsg).indexOf('BLOB_READ_WRITE_TOKEN') !== -1) {
+          errMsg +=
+            ' Add a Blob store in Vercel → Storage, link it to this project, redeploy, then pull env or paste the token.';
+        }
+        throw new Error(String(errMsg));
+      }
+      url = /** @type {string} */ (data.url);
+    } else {
+      var mod = await kieLoadBlobClientModule();
+      var uploadFn = mod && mod.upload;
+      if (typeof uploadFn !== 'function') {
+        throw new Error('Could not load Vercel Blob client (CDN blocked?). Try a file under 4 MB.');
+      }
+      var blob = await uploadFn(file.name, file, {
+        access: 'public',
+        handleUploadUrl: (typeof location !== 'undefined' ? location.origin : '') + '/api/blob-upload',
+        multipart: true,
+      });
+      url = blob && (blob.url || blob.downloadUrl);
+    }
+    if (!url) throw new Error('No URL returned from Blob');
+    field.value = String(url);
+    try {
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+    } catch (eD) {}
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(String(url));
+      }
+    } catch (eC) {}
+    field.focus();
+    try {
+      field.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } catch (eS) {}
+    kieSetStatus('Blob URL filled in the field above (also copied to clipboard if allowed). Run Create cover when ready.');
+    showToast('Blob URL ready.');
   } catch (e) {
     var msg = e && e.message ? e.message : String(e);
-    kieSetStatus(
-      'Blob upload failed: ' +
-        msg +
-        ' — add a Blob store and BLOB_READ_WRITE_TOKEN (see README / .env.example).'
-    );
+    var hint =
+      ' Local: `npm run dev:vercel` + `BLOB_READ_WRITE_TOKEN` in `.env.local`. Production: token in Vercel → Settings → Env, then redeploy.';
+    if (String(msg).indexOf('Failed to fetch') !== -1 || String(msg).indexOf('NetworkError') !== -1) {
+      hint =
+        ' No response from /api/blob-put-simple — use `npm run dev:vercel` or open the deployed site (not plain static `serve`).';
+    }
+    kieSetStatus('Blob upload failed: ' + msg + ' — ' + hint);
+    showToast('Blob upload failed — read green banner above tabs.');
   }
   input.value = '';
 }
