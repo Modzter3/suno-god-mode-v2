@@ -4418,7 +4418,8 @@ async function kieBlobUploadToField(input) {
   showToast('Uploading…');
   try {
     var url;
-    if (file.size <= KIE_BLOB_SIMPLE_MAX) {
+    var needClientUpload = file.size > KIE_BLOB_SIMPLE_MAX;
+    if (!needClientUpload) {
       var fd = new FormData();
       fd.append('file', file, file.name);
       var res = await fetch('/api/blob-put-simple', { method: 'POST', body: fd });
@@ -4435,25 +4436,31 @@ async function kieBlobUploadToField(input) {
         }
         throw new Error('Server did not return JSON. First bytes: ' + rawText.slice(0, 100));
       }
-      if (!res.ok) {
+      if (res.ok) {
+        url = /** @type {string} */ (data.url);
+      } else if (res.status === 413) {
+        needClientUpload = true;
+      } else {
         var errMsg = (data && data.error) || 'Upload failed (' + res.status + ')';
         if (res.status === 503 && String(errMsg).indexOf('BLOB_READ_WRITE_TOKEN') !== -1) {
           errMsg +=
-            ' Add a Blob store in Vercel → Storage, link it to this project, redeploy, then pull env or paste the token.';
+            ' In Vercel: link Blob store to this project (not only manual uploads in the dashboard). Redeploy after linking.';
         }
         throw new Error(String(errMsg));
       }
-      url = /** @type {string} */ (data.url);
-    } else {
+    }
+    if (!url && needClientUpload) {
       var mod = await kieLoadBlobClientModule();
       var uploadFn = mod && mod.upload;
       if (typeof uploadFn !== 'function') {
-        throw new Error('Could not load Vercel Blob client (CDN blocked?). Try a file under 4 MB.');
+        throw new Error(
+          'Large file: browser Blob client failed to load (CDN blocked?). Try a file under 4 MB or another network.'
+        );
       }
       var blob = await uploadFn(file.name, file, {
         access: 'public',
         handleUploadUrl: (typeof location !== 'undefined' ? location.origin : '') + '/api/blob-upload',
-        multipart: true,
+        multipart: file.size > 4 * 1024 * 1024,
       });
       url = blob && (blob.url || blob.downloadUrl);
     }

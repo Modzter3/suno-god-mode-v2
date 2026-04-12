@@ -18,17 +18,36 @@ function json(body, status = 200) {
   });
 }
 
+function safeBlobFilename(name) {
+  var base = (typeof name === 'string' && name) || 'upload.bin';
+  base = base.replace(/[/\\]/g, '_').replace(/[^\w.\-()+ ]/g, '_');
+  if (base.length > 180) base = base.slice(-180);
+  return base || 'upload.bin';
+}
+
 export default async function handler(request) {
   if (request.method !== 'POST') {
     return json({ error: 'Method not allowed' }, 405);
   }
-  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+
+  var token = (process.env.BLOB_READ_WRITE_TOKEN || '').trim();
+  if (!token) {
     return json(
       {
         error:
-          'BLOB_READ_WRITE_TOKEN is not set. Link a Blob store in Vercel → Storage, then vercel env pull.',
+          'BLOB_READ_WRITE_TOKEN is not set or is empty. In Vercel: Storage → Blob → link store to this project, then redeploy so the env var is injected.',
       },
       503,
+    );
+  }
+
+  if (typeof request.formData !== 'function') {
+    return json(
+      {
+        error:
+          'Server cannot read multipart uploads (missing formData). Redeploy with Node.js serverless functions.',
+      },
+      500,
     );
   }
 
@@ -49,7 +68,7 @@ export default async function handler(request) {
     return json(
       {
         error:
-          'This file is too large for server upload (max ~4 MB on Vercel). Save a shorter clip or the app will try the large-file path in the browser.',
+          'This file is too large for server upload (max ~4 MB on Vercel). The app will use the browser upload path instead.',
         code: 'TOO_LARGE',
       },
       413,
@@ -57,14 +76,17 @@ export default async function handler(request) {
   }
 
   try {
-    const buf = Buffer.from(await file.arrayBuffer());
-    const name = (typeof file.name === 'string' && file.name) || 'upload.bin';
+    const name = safeBlobFilename(file.name);
     const contentType =
       (typeof file.type === 'string' && file.type) || 'application/octet-stream';
 
-    const result = await put(name, buf, {
+    /** Prefer stream to avoid buffering; fallback for older runtimes. */
+    const body =
+      typeof file.stream === 'function' ? file.stream() : Buffer.from(await file.arrayBuffer());
+
+    const result = await put(name, body, {
       access: 'public',
-      token: process.env.BLOB_READ_WRITE_TOKEN,
+      token,
       contentType,
       addRandomSuffix: true,
     });

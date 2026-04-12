@@ -20,11 +20,12 @@ export default async function handler(request) {
     return json({ error: 'Method not allowed' }, 405);
   }
 
-  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+  const token = (process.env.BLOB_READ_WRITE_TOKEN || '').trim();
+  if (!token) {
     return json(
       {
         error:
-          'BLOB_READ_WRITE_TOKEN is not set. Create a Blob store in Vercel → Storage and pull env with vercel env pull.',
+          'BLOB_READ_WRITE_TOKEN is not set or empty. Link a Blob store to this project in Vercel → Storage, then redeploy.',
       },
       503,
     );
@@ -41,7 +42,7 @@ export default async function handler(request) {
     const jsonResponse = await handleUpload({
       body,
       request,
-      token: process.env.BLOB_READ_WRITE_TOKEN,
+      token,
       onBeforeGenerateToken: async (pathname, _clientPayload, _multipart) => {
         void pathname;
         return {
