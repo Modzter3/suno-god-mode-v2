@@ -10,7 +10,13 @@ Static web app plus Vercel Edge functions that call [OpenRouter](https://openrou
    - `OPENROUTER_API_KEY` — your OpenRouter API key (required).
    - `OPENROUTER_MODEL` — optional; if unset, the app defaults to `openai/gpt-4o-mini`. The API also sends **fallback models** so a single unavailable slug does not fail the whole request (see [model fallbacks](https://openrouter.ai/docs/guides/routing/model-fallbacks)).
    - `OPENROUTER_SITE_URL` — optional; defaults to `https://$VERCEL_URL` for the `HTTP-Referer` header OpenRouter expects.
-4. Deploy. The app uses `/api/models` (live OpenRouter model catalog for the picker), `/api/generate` (concept), `/api/generate-stream` (song, streaming), and `/api/history` (optional saved generations).
+4. Deploy. The app uses `/api/models` (live OpenRouter model catalog for the picker), `/api/generate` (concept), `/api/generate-stream` (song, streaming), `/api/history` (optional saved generations), and optionally `/api/udio-generate` + `/api/udio-feed` for [Udio](https://udioapi.pro/docs) (Chirp) audio rendering.
+
+### Udio (optional in-app audio)
+
+- After a successful **Generate**, use **Send to Udio** to post title, style, and lyrics to [udioapi.pro](https://udioapi.pro/docs) (custom mode).
+- Set **`UDIO_API_KEY`** in Vercel (Bearer token from your Udio account). Without it, the button will error when pressed.
+- Credits and moderation are enforced by Udio; the UI polls until tracks complete or fail.
 
 ### Past results (database)
 
