@@ -471,6 +471,10 @@ textarea { resize: vertical; min-height: 80px; }
 .udio-track-label { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px; }
 .udio-open-link { margin-top: 8px; font-size: 0.75rem; }
 .udio-open-link a { color: var(--accent); }
+.udio-browser-row { display: flex; align-items: flex-start; gap: 10px; margin: 12px 0 8px; font-size: 0.8rem; line-height: 1.35; cursor: pointer; }
+.udio-browser-row input[type="checkbox"] { margin-top: 3px; }
+#udioBrowserKeyWrap { margin-top: 8px; }
+.udio-mini { font-size: 0.72rem; color: var(--text-muted); margin-top: 6px; line-height: 1.35; }
 .format-btn {
   background: var(--bg-elevated);
   border: 2px solid var(--border);
@@ -1057,7 +1061,17 @@ html.light .chip.suggested {
             <h3><i class="fas fa-music"></i> Generate audio (Udio)</h3>
           </div>
           <div class="output-body udio-body">
-            <p class="udio-hint">Server needs <code>UDIO_API_KEY</code> (Bearer token from <a href="https://udioapi.pro/docs" target="_blank" rel="noopener noreferrer">udioapi.pro</a>). Sends this page&rsquo;s title, style, and lyrics in <strong>custom mode</strong>. Uses your slider text for style / weirdness / audio weights when it can parse them.</p>
+            <p class="udio-hint"><strong>Vercel Hobby</strong> often limits serverless to <strong>~10s</strong>, so the proxy can 504. Use <strong>browser mode</strong> below (paste your Udio key — it only talks to udioapi.pro from your browser, not this app&rsquo;s server).</p>
+            <p class="udio-hint">Or set <code>UDIO_API_KEY</code> in Vercel for server proxy (needs Pro / longer function time if Udio is slow).</p>
+            <label class="udio-browser-row">
+              <input type="checkbox" id="udioBrowserMode" onchange="onUdioBrowserToggle()" />
+              <span>Call Udio from <strong>browser</strong> (recommended on Hobby — avoids Vercel timeout)</span>
+            </label>
+            <div id="udioBrowserKeyWrap" style="display:none">
+              <label>Udio API key (stored in sessionStorage on this device only)</label>
+              <input type="password" id="udioBrowserKey" placeholder="Bearer token from udioapi.pro" autocomplete="off" />
+              <p class="udio-mini">Not sent to Vercel. Only your browser calls https://udioapi.pro. If you see a CORS error, use server mode with a paid Vercel plan instead.</p>
+            </div>
             <div class="udio-controls row-2">
               <div>
                 <label>Chirp model</label>
@@ -1725,6 +1739,8 @@ async function init() {
     updateSuggestedTopics();
     updateRhymeSchemes();
   });
+  loadUdioSessionKey();
+  onUdioBrowserToggle();
 }
 function initTheme() {
   if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
@@ -2518,7 +2534,48 @@ function parseAndDisplay(content) {
   document.getElementById('outputSections').style.display = 'block';
 }
 /* ===== UDIO API (udioapi.pro) ===== */
+var UDIO_PUBLIC_API = 'https://udioapi.pro/api';
+/** When true, poll and generate hit udioapi.pro directly (no Vercel — fixes Hobby 10s limit). */
+var udioDirectMode = false;
+var udioDirectKey = '';
 var udioPollTimer = null;
+function onUdioBrowserToggle() {
+  var wrap = document.getElementById('udioBrowserKeyWrap');
+  var chk = document.getElementById('udioBrowserMode');
+  if (wrap && chk) wrap.style.display = chk.checked ? 'block' : 'none';
+}
+function loadUdioSessionKey() {
+  try {
+    var k = sessionStorage.getItem('udio_bearer_browser');
+    var el = document.getElementById('udioBrowserKey');
+    if (el && k) el.value = k;
+  } catch (e) {}
+}
+function buildUdioPayload() {
+  var model = document.getElementById('udioModel').value;
+  var genderEl = document.getElementById('udioGender');
+  var gender = genderEl ? genderEl.value : '';
+  var title = rawTitleContent || 'Untitled';
+  var style = rawStyleContent || '';
+  var lyrics = rawLyricsContent || '';
+  var instrumental = isInstrumentalMode;
+  if (instrumental && !lyrics.trim()) {
+    lyrics = 'Instrumental.';
+  }
+  var sl = parseSliderPercents(rawSliderContent || '');
+  var payload = {
+    model: model,
+    title: title,
+    style: style,
+    prompt: lyrics,
+    make_instrumental: instrumental,
+    style_weight: sl.styleInf,
+    weirdness_constraint: sl.weirdness,
+    audio_weight: sl.audio
+  };
+  if (gender === 'male' || gender === 'female') payload.gender = gender;
+  return payload;
+}
 function clearUdioPoll() {
   if (udioPollTimer) {
     clearTimeout(udioPollTimer);
@@ -2527,6 +2584,8 @@ function clearUdioPoll() {
 }
 function resetUdioPanel() {
   clearUdioPoll();
+  udioDirectMode = false;
+  udioDirectKey = '';
   var statusEl = document.getElementById('udioStatus');
   var playersEl = document.getElementById('udioPlayers');
   if (statusEl) {
@@ -2603,7 +2662,15 @@ async function runUdioPollAttempt(workId, attempt) {
   var statusEl = document.getElementById('udioStatus');
   var btn = document.getElementById('udioGenerateBtn');
   try {
-    var res = await fetch('/api/udio-feed?workId=' + encodeURIComponent(workId));
+    var res;
+    if (udioDirectMode && udioDirectKey) {
+      res = await fetch(
+        UDIO_PUBLIC_API + '/v2/feed?workId=' + encodeURIComponent(workId),
+        { headers: { Authorization: 'Bearer ' + udioDirectKey } }
+      );
+    } else {
+      res = await fetch('/api/udio-feed?workId=' + encodeURIComponent(workId));
+    }
     var data = await res.json().catch(function() {
       return {};
     });
@@ -2673,34 +2740,67 @@ async function startUdioGeneration() {
   var playersEl = document.getElementById('udioPlayers');
   playersEl.innerHTML = '';
   statusEl.style.display = 'block';
-  statusEl.textContent = 'Calling your server (then Udio)… usually a few seconds.';
   btn.disabled = true;
 
-  var model = document.getElementById('udioModel').value;
-  var genderEl = document.getElementById('udioGender');
-  var gender = genderEl ? genderEl.value : '';
+  var payload = buildUdioPayload();
+  var browserChk = document.getElementById('udioBrowserMode');
+  var useBrowser = browserChk && browserChk.checked;
 
-  var title = rawTitleContent || 'Untitled';
-  var style = rawStyleContent || '';
-  var lyrics = rawLyricsContent || '';
-  var instrumental = isInstrumentalMode;
-  if (instrumental && !lyrics.trim()) {
-    lyrics = 'Instrumental.';
+  if (useBrowser) {
+    var keyEl = document.getElementById('udioBrowserKey');
+    var key = keyEl ? keyEl.value.trim() : '';
+    if (!key) {
+      statusEl.textContent = 'Paste your Udio API key above (browser mode).';
+      showToast('Paste Udio API key for browser mode');
+      btn.disabled = false;
+      return;
+    }
+    try {
+      sessionStorage.setItem('udio_bearer_browser', key);
+    } catch (e) {}
+    udioDirectMode = true;
+    udioDirectKey = key;
+    statusEl.textContent = 'Calling Udio from your browser…';
+    try {
+      var resB = await fetch(UDIO_PUBLIC_API + '/v2/generate', {
+        method: 'POST',
+        headers: {
+          Authorization: 'Bearer ' + key,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+      var dataB = await resB.json().catch(function() {
+        return {};
+      });
+      if (dataB.code != null && dataB.code !== 200) {
+        throw new Error(dataB.message || dataB.error || 'Udio error');
+      }
+      if (!resB.ok && dataB.workId == null && (dataB.data == null || dataB.data.task_id == null)) {
+        throw new Error(dataB.message || dataB.error || 'Request failed (' + resB.status + ')');
+      }
+      var workIdB = dataB.workId || (dataB.data && dataB.data.task_id);
+      if (!workIdB) {
+        throw new Error(dataB.message || 'No task id from Udio');
+      }
+      statusEl.textContent = 'Rendering… (often 1–3 min). Task: ' + workIdB;
+      scheduleUdioPoll(workIdB, 0);
+    } catch (e) {
+      udioDirectMode = false;
+      udioDirectKey = '';
+      var msgB = e && e.name === 'TypeError' && String(e.message).indexOf('fetch') !== -1
+        ? 'Browser could not reach Udio (network or CORS). Try again, or turn off browser mode and use Vercel Pro for server proxy.'
+        : 'Error: ' + (e.message || String(e));
+      statusEl.textContent = msgB;
+      showToast(msgB);
+      btn.disabled = false;
+    }
+    return;
   }
 
-  var sl = parseSliderPercents(rawSliderContent || '');
-  var payload = {
-    model: model,
-    title: title,
-    style: style,
-    prompt: lyrics,
-    make_instrumental: instrumental,
-    style_weight: sl.styleInf,
-    weirdness_constraint: sl.weirdness,
-    audio_weight: sl.audio
-  };
-  if (gender === 'male' || gender === 'female') payload.gender = gender;
-
+  udioDirectMode = false;
+  udioDirectKey = '';
+  statusEl.textContent = 'Calling Vercel proxy (then Udio)… Hobby may 504 if >10s.';
   var ac = new AbortController();
   var clientTimer = setTimeout(function() {
     ac.abort();
@@ -2717,8 +2817,7 @@ async function startUdioGeneration() {
     });
     if (res.status === 504 || res.status === 502) {
       throw new Error(
-        data.message ||
-          'Gateway timeout — Vercel may be killing the function after 10s on Hobby. Redeploy with latest vercel.json (maxDuration) or use a Pro plan.'
+        'Gateway timeout (Vercel limit). Enable “Call Udio from browser” above, paste your key, and try again — or upgrade Vercel.'
       );
     }
     if (data.code != null && data.code !== 200) {
@@ -2735,7 +2834,7 @@ async function startUdioGeneration() {
     scheduleUdioPoll(workId, 0);
   } catch (e) {
     var msg = e && e.name === 'AbortError'
-      ? 'Timed out after 70s — server or Udio did not respond. Check Vercel → Functions logs for /api/udio-generate.'
+      ? 'Timed out after 70s. Try browser mode with key pasted locally.'
       : 'Error: ' + (e.message || String(e));
     statusEl.textContent = msg;
     showToast(msg);

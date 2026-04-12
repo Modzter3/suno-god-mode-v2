@@ -1,8 +1,9 @@
 const UDIO_BASE = 'https://udioapi.pro/api';
 
-/** Hobby plan often caps serverless at 10s unless you raise maxDuration (Pro) or set in vercel.json */
+/** Edge often allows longer than Node Hobby 10s; still use browser mode in UI for reliability. */
 export const config = {
-  maxDuration: 60,
+  runtime: 'edge',
+  maxDuration: 30,
 };
 
 function json(body, status = 200) {
@@ -84,8 +85,8 @@ export default async function handler(req) {
     if (wc !== undefined) payload.weirdness_constraint = wc;
     if (aw !== undefined) payload.audio_weight = aw;
 
-    /** Abort so we always return JSON instead of hanging until Vercel kills the function */
-    const UPSTREAM_MS = 55000;
+    /** Stay under Edge maxDuration (30s) + Vercel Hobby limits */
+    const UPSTREAM_MS = 25000;
     const ac = new AbortController();
     const kill = setTimeout(function () {
       ac.abort();

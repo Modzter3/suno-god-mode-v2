@@ -1,6 +1,7 @@
 const UDIO_BASE = 'https://udioapi.pro/api';
 
 export const config = {
+  runtime: 'edge',
   maxDuration: 30,
 };
 
