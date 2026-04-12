@@ -1,5 +1,10 @@
 const UDIO_BASE = 'https://udioapi.pro/api';
 
+/** Hobby plan often caps serverless at 10s unless you raise maxDuration (Pro) or set in vercel.json */
+export const config = {
+  maxDuration: 60,
+};
+
 function json(body, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -22,12 +27,17 @@ function clamp01(x) {
   return Math.min(0.99, Math.max(0, Math.round(x * 100) / 100));
 }
 
+function getApiKey() {
+  const k = process.env.UDIO_API_KEY;
+  return typeof k === 'string' ? k.trim() : '';
+}
+
 export default async function handler(req) {
   if (req.method !== 'POST') {
     return new Response('Method Not Allowed', { status: 405 });
   }
 
-  const key = process.env.UDIO_API_KEY;
+  const key = getApiKey();
   if (!key) {
     return json(
       { error: 'UDIO_API_KEY is not set in Vercel → Settings → Environment Variables.', code: 500 },
@@ -74,18 +84,55 @@ export default async function handler(req) {
     if (wc !== undefined) payload.weirdness_constraint = wc;
     if (aw !== undefined) payload.audio_weight = aw;
 
-    const res = await fetch(`${UDIO_BASE}/v2/generate`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${key}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
+    /** Abort so we always return JSON instead of hanging until Vercel kills the function */
+    const UPSTREAM_MS = 55000;
+    const ac = new AbortController();
+    const kill = setTimeout(function () {
+      ac.abort();
+    }, UPSTREAM_MS);
 
-    const data = await res.json().catch(function () {
-      return { message: 'Invalid JSON from Udio' };
-    });
+    let res;
+    try {
+      res = await fetch(`${UDIO_BASE}/v2/generate`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${key}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+        signal: ac.signal,
+      });
+    } catch (e) {
+      clearTimeout(kill);
+      if (e && e.name === 'AbortError') {
+        return json(
+          {
+            code: 504,
+            message:
+              'Udio did not respond in time (55s). Their API may be slow or down — retry. If you are on Vercel Hobby, functions are limited to 10s unless you set maxDuration (see vercel.json) and use a plan that allows it.',
+            error: 'upstream_timeout',
+          },
+          504
+        );
+      }
+      throw e;
+    }
+    clearTimeout(kill);
+
+    const text = await res.text();
+    let data;
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch {
+      return json(
+        {
+          code: res.status,
+          message: text.slice(0, 200) || 'Non-JSON response from Udio',
+          error: 'invalid_json',
+        },
+        res.ok ? 200 : res.status
+      );
+    }
 
     return new Response(JSON.stringify(data), {
       status: res.ok ? 200 : res.status,

@@ -17,6 +17,7 @@ Static web app plus Vercel Edge functions that call [OpenRouter](https://openrou
 - After a successful **Generate**, use **Send to Udio** to post title, style, and lyrics to [udioapi.pro](https://udioapi.pro/docs) (custom mode).
 - Set **`UDIO_API_KEY`** in Vercel (Bearer token from your Udio account). Without it, the button will error when pressed.
 - Credits and moderation are enforced by Udio; the UI polls until tracks complete or fail.
+- **Stuck on “Sending to Udio”?** The server calls Udio and must finish within your **Vercel function time limit**. On **Hobby**, the default is often **10 seconds** — if Udio is slow, the function can time out before you get a task id. This repo sets **`maxDuration`** in `vercel.json` for `api/udio-generate` (60s); redeploy after pulling. If Vercel still caps at 10s on your plan, upgrade or ensure **UDIO_API_KEY** has no extra spaces and is enabled for **Production**. Check **Vercel → Project → Functions → Logs** for `/api/udio-generate`.
 
 ### Past results (database)
 

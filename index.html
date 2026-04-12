@@ -2673,7 +2673,7 @@ async function startUdioGeneration() {
   var playersEl = document.getElementById('udioPlayers');
   playersEl.innerHTML = '';
   statusEl.style.display = 'block';
-  statusEl.textContent = 'Sending to Udio…';
+  statusEl.textContent = 'Calling your server (then Udio)… usually a few seconds.';
   btn.disabled = true;
 
   var model = document.getElementById('udioModel').value;
@@ -2701,20 +2701,31 @@ async function startUdioGeneration() {
   };
   if (gender === 'male' || gender === 'female') payload.gender = gender;
 
+  var ac = new AbortController();
+  var clientTimer = setTimeout(function() {
+    ac.abort();
+  }, 70000);
   try {
     var res = await fetch('/api/udio-generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      signal: ac.signal
     });
     var data = await res.json().catch(function() {
       return {};
     });
+    if (res.status === 504 || res.status === 502) {
+      throw new Error(
+        data.message ||
+          'Gateway timeout — Vercel may be killing the function after 10s on Hobby. Redeploy with latest vercel.json (maxDuration) or use a Pro plan.'
+      );
+    }
     if (data.code != null && data.code !== 200) {
       throw new Error(data.message || data.error || 'Udio error');
     }
     if (!res.ok && data.workId == null && (data.data == null || data.data.task_id == null)) {
-      throw new Error(data.message || data.error || 'Request failed');
+      throw new Error(data.message || data.error || 'Request failed (' + res.status + ')');
     }
     var workId = data.workId || (data.data && data.data.task_id);
     if (!workId) {
@@ -2723,9 +2734,14 @@ async function startUdioGeneration() {
     statusEl.textContent = 'Rendering… (often 1–3 min). Task: ' + workId;
     scheduleUdioPoll(workId, 0);
   } catch (e) {
-    statusEl.textContent = 'Error: ' + (e.message || String(e));
-    showToast(statusEl.textContent);
+    var msg = e && e.name === 'AbortError'
+      ? 'Timed out after 70s — server or Udio did not respond. Check Vercel → Functions logs for /api/udio-generate.'
+      : 'Error: ' + (e.message || String(e));
+    statusEl.textContent = msg;
+    showToast(msg);
     btn.disabled = false;
+  } finally {
+    clearTimeout(clientTimer);
   }
 }
 /* ===== GENERATION HISTORY (Postgres + localStorage fallback) ===== */
