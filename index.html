@@ -491,7 +491,7 @@ textarea { resize: vertical; min-height: 80px; }
   gap: 10px;
   margin-bottom: 12px;
   position: relative;
-  z-index: 1;
+  z-index: 20;
 }
 .audio-player-card__top-main {
   display: flex;
@@ -527,9 +527,13 @@ textarea { resize: vertical; min-height: 80px; }
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
-  z-index: 40;
+  z-index: 50;
   min-width: 220px;
   max-width: min(280px, 92vw);
+  max-height: min(70vh, 360px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   padding: 8px 0;
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -596,11 +600,21 @@ html.light .kie-track-menu-dropdown {
 }
 .audio-player-card__body {
   display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: stretch;
+  position: relative;
+  z-index: 0;
+}
+.audio-player-card__controls-row {
+  display: flex;
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
-  position: relative;
-  z-index: 1;
+}
+.audio-player-card__dl-row {
+  display: flex;
+  justify-content: flex-start;
 }
 .audio-player-card__audio { display: none; }
 .audio-player-card__play {
@@ -681,9 +695,9 @@ html.light .kie-track-menu-dropdown {
 }
 .audio-player-card__dl i { font-size: 0.85rem; opacity: 0.9; }
 @media (max-width: 520px) {
-  .audio-player-card__body { flex-direction: column; align-items: stretch; }
+  .audio-player-card__controls-row { flex-direction: column; align-items: stretch; }
   .audio-player-card__play { align-self: flex-start; }
-  .audio-player-card__dl { justify-content: center; width: 100%; }
+  .audio-player-card__dl-row .audio-player-card__dl { justify-content: center; width: 100%; }
 }
 html.light .audio-player-card { box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08); }
 html.light .audio-player-card__play { color: #fff; }
@@ -3489,6 +3503,7 @@ function buildAudioPlayerHtml(safeUrl, labelEscaped, meta) {
       menuHtml +
       '</div>' +
       '<div class="audio-player-card__body">' +
+      '<div class="audio-player-card__controls-row">' +
       '<audio preload="metadata" class="audio-player-card__audio" src="' +
       safeUrl +
       '"></audio>' +
@@ -3505,11 +3520,14 @@ function buildAudioPlayerHtml(safeUrl, labelEscaped, meta) {
       '<span class="audio-player-card__t-dur">0:00</span>' +
       '</div>' +
       '</div>' +
+      '</div>' +
+      '<div class="audio-player-card__dl-row">' +
       '<a class="audio-player-card__dl" href="' +
       safeUrl +
       '" download target="_blank" rel="noopener noreferrer">' +
       '<i class="fas fa-download"></i> Download' +
       '</a>' +
+      '</div>' +
       '</div>' +
       '</div>'
   );
