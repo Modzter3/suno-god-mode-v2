@@ -687,6 +687,12 @@ html.light .kie-track-menu-dropdown {
   background: var(--bg-input);
   border: 1px solid var(--border);
   transition: border-color 0.2s, color 0.2s, background 0.2s;
+  cursor: pointer;
+  font-family: inherit;
+}
+button.audio-player-card__dl {
+  appearance: none;
+  -webkit-appearance: none;
 }
 .audio-player-card__dl:hover {
   border-color: var(--accent);
@@ -3398,6 +3404,80 @@ function escapeAttr(s) {
     .replace(/"/g, '&quot;')
     .replace(/</g, '&lt;');
 }
+/** Safe filename base for downloads (path separators and odd control chars removed). */
+function sanitizeDownloadBasename(s) {
+  s = String(s || '').trim();
+  if (!s) return '';
+  return s.replace(/[\\/:*?"<>|\u0000-\u001f]+/g, '-').replace(/\s+/g, ' ').trim().slice(0, 120);
+}
+function pickFilenameFromUrl(urlStr) {
+  try {
+    var u = new URL(urlStr, window.location.href);
+    var parts = u.pathname.split('/').filter(function(p) {
+      return p;
+    });
+    var seg = parts.length ? parts[parts.length - 1] : '';
+    if (!seg) return '';
+    seg = decodeURIComponent(seg);
+    return seg.split('?')[0] || '';
+  } catch (e) {
+    return '';
+  }
+}
+/**
+ * Save a remote file to the user device without navigating away.
+ * Uses fetch+blob when the host allows CORS; otherwise falls back to a download link.
+ */
+async function downloadUrlToDevice(urlStr, nameHint) {
+  var base = sanitizeDownloadBasename(nameHint) || pickFilenameFromUrl(urlStr);
+  var hasExt = /\.(mp3|m4a|wav|flac|ogg|webm|aac|mp4)(\?|$)/i.test(base);
+  var filename = hasExt ? base : (base || 'track') + '.mp3';
+
+  function triggerAnchorDownload(href, fname) {
+    var a = document.createElement('a');
+    a.href = href;
+    a.setAttribute('download', fname);
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
+  try {
+    var res = await fetch(urlStr, { mode: 'cors', credentials: 'omit' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    var blob = await res.blob();
+    var ct = (res.headers.get('Content-Type') || blob.type || '').toLowerCase();
+    if (!/\.(mp3|m4a|wav|flac|ogg|webm|aac|mp4)$/i.test(filename)) {
+      if (ct.indexOf('wav') !== -1) filename = filename.replace(/\.mp3$/i, '') + '.wav';
+      else if (ct.indexOf('mp4') !== -1 || ct.indexOf('video') !== -1) filename = filename.replace(/\.mp3$/i, '') + '.mp4';
+      else if (ct.indexOf('mpeg') !== -1 || ct.indexOf('mp3') !== -1) filename = filename.replace(/\.[^.]+$/, '') + '.mp3';
+    }
+    var objUrl = URL.createObjectURL(blob);
+    triggerAnchorDownload(objUrl, filename);
+    setTimeout(function() {
+      URL.revokeObjectURL(objUrl);
+    }, 4000);
+  } catch (e) {
+    try {
+      triggerAnchorDownload(urlStr, filename);
+    } catch (e2) {
+      showToast('Could not start download. Try again or copy the track URL.');
+    }
+  }
+}
+(function bindDirectDownloadClicks() {
+  if (window.__directDlBound) return;
+  window.__directDlBound = true;
+  document.addEventListener('click', function(ev) {
+    var el = ev.target && ev.target.closest && ev.target.closest('.js-force-download[data-dl-url]');
+    if (!el) return;
+    var u = el.getAttribute('data-dl-url');
+    if (!u) return;
+    ev.preventDefault();
+    downloadUrlToDevice(u, el.getAttribute('data-dl-name') || '');
+  });
+})();
 function parseSliderPercents(text) {
   var out = {};
   if (!text) return out;
@@ -3497,6 +3577,9 @@ function buildKieTrackMenuHtml(meta) {
 function buildAudioPlayerHtml(safeUrl, labelEscaped, meta) {
   meta = meta || {};
   meta.safeUrl = safeUrl;
+  var dlNameAttr = meta.downloadFilenameHint
+    ? ' data-dl-name="' + meta.downloadFilenameHint + '"'
+    : '';
   var menuHtml = '';
   if (meta.menu === 'kie' || meta.menu === 'udio') {
     menuHtml = buildKieTrackMenuHtml(meta);
@@ -3532,11 +3615,13 @@ function buildAudioPlayerHtml(safeUrl, labelEscaped, meta) {
       '</div>' +
       '</div>' +
       '<div class="audio-player-card__dl-row">' +
-      '<a class="audio-player-card__dl" href="' +
+      '<button type="button" class="audio-player-card__dl js-force-download" data-dl-url="' +
       safeUrl +
-      '" download target="_blank" rel="noopener noreferrer">' +
+      '"' +
+      dlNameAttr +
+      '>' +
       '<i class="fas fa-download"></i> Download' +
-      '</a>' +
+      '</button>' +
       '</div>' +
       '</div>' +
       '</div>'
@@ -3657,6 +3742,7 @@ function renderUdioPlayers(responseData, requestBody) {
       buildAudioPlayerHtml(safeUrl, escapeHistoryHtml(label), {
         menu: 'udio',
         trackTitleEscaped: escapeAttr(trackTitleForMeta),
+        downloadFilenameHint: escapeAttr(trackTitleForMeta),
       })
     );
   }
@@ -4575,6 +4661,7 @@ function renderKieMusicBlock(title, suno, taskId) {
         taskId: tid,
         audioId: aid,
         trackTitleEscaped: escapeAttr(rawTitle),
+        downloadFilenameHint: escapeAttr(rawTitle),
       })
     );
   }
@@ -4728,7 +4815,11 @@ function kieHtmlLinksFromStemResponse(resp) {
         escapeHistoryHtml(k) +
         ':</strong> <a href="' +
         escapeAttr(v) +
-        '" target="_blank" rel="noopener">' +
+        '" class="js-force-download" data-dl-url="' +
+        escapeAttr(v) +
+        '" data-dl-name="' +
+        escapeAttr(k) +
+        '" download rel="noopener">' +
         escapeHistoryHtml(v) +
         '</a></div>'
     );
@@ -4855,7 +4946,9 @@ async function startKieMp4() {
           return (
             '<p><a href="' +
             escapeAttr(vu) +
-            '" target="_blank" rel="noopener">Download / open video</a></p><video controls style="width:100%;max-height:360px" src="' +
+            '" class="js-force-download" data-dl-url="' +
+            escapeAttr(vu) +
+            '" data-dl-name="music-video" download rel="noopener">Download video</a></p><video controls style="width:100%;max-height:360px" src="' +
             escapeAttr(vu) +
             '"></video>'
           );
@@ -4893,7 +4986,15 @@ async function startKieWav() {
       function(row) {
         var w = row.response && row.response.audioWavUrl;
         if (w) {
-          return '<p><a href="' + escapeAttr(w) + '" target="_blank" rel="noopener">' + escapeHistoryHtml(w) + '</a></p>';
+          return (
+            '<p><a href="' +
+            escapeAttr(w) +
+            '" class="js-force-download" data-dl-url="' +
+            escapeAttr(w) +
+            '" data-dl-name="track" download rel="noopener">' +
+            escapeHistoryHtml(w) +
+            '</a></p>'
+          );
         }
         return kieHtmlLinksFromStemResponse(row.response || row);
       }
