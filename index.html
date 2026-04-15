@@ -3425,8 +3425,9 @@ function pickFilenameFromUrl(urlStr) {
   }
 }
 /**
- * Save a remote file to the user device without navigating away.
- * Uses fetch+blob when the host allows CORS; otherwise falls back to a download link.
+ * Save a remote file to the user device. Cross-origin URLs cannot use <a download>
+ * reliably (browser ignores it without CORS). Remote http(s) URLs go through
+ * /api/download-proxy (same-origin) which sets Content-Disposition: attachment.
  */
 async function downloadUrlToDevice(urlStr, nameHint) {
   var base = sanitizeDownloadBasename(nameHint) || pickFilenameFromUrl(urlStr);
@@ -3443,6 +3444,55 @@ async function downloadUrlToDevice(urlStr, nameHint) {
     a.remove();
   }
 
+  var u;
+  try {
+    u = new URL(urlStr, window.location.href);
+  } catch (e1) {
+    showToast('Invalid download URL.');
+    return;
+  }
+
+  var isHttp = u.protocol === 'http:' || u.protocol === 'https:';
+  var isOurProxy =
+    u.origin === window.location.origin && String(u.pathname).indexOf('/api/download-proxy') !== -1;
+
+  if (isHttp && !isOurProxy) {
+    var nameClean = sanitizeDownloadBasename(nameHint) || '';
+    var qs = new URLSearchParams();
+    qs.set('url', urlStr);
+    if (nameClean) qs.set('name', nameClean);
+    var queryString = qs.toString();
+    if (queryString.length <= 1800) {
+      triggerAnchorDownload('/api/download-proxy?' + queryString, filename);
+      return;
+    }
+    var iframe = document.createElement('iframe');
+    iframe.style.cssText = 'position:fixed;width:0;height:0;border:0;visibility:hidden';
+    iframe.name = 'dlproxy-' + Date.now();
+    document.body.appendChild(iframe);
+    var form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/api/download-proxy';
+    form.target = iframe.name;
+    form.enctype = 'application/x-www-form-urlencoded';
+    form.style.display = 'none';
+    var inUrl = document.createElement('input');
+    inUrl.name = 'url';
+    inUrl.value = urlStr;
+    form.appendChild(inUrl);
+    var inName = document.createElement('input');
+    inName.name = 'name';
+    inName.value = nameClean;
+    form.appendChild(inName);
+    document.body.appendChild(form);
+    form.submit();
+    form.remove();
+    setTimeout(function() {
+      iframe.remove();
+    }, 120000);
+    return;
+  }
+
   try {
     var res = await fetch(urlStr, { mode: 'cors', credentials: 'omit' });
     if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -3457,13 +3507,9 @@ async function downloadUrlToDevice(urlStr, nameHint) {
     triggerAnchorDownload(objUrl, filename);
     setTimeout(function() {
       URL.revokeObjectURL(objUrl);
-    }, 4000);
-  } catch (e) {
-    try {
-      triggerAnchorDownload(urlStr, filename);
-    } catch (e2) {
-      showToast('Could not start download. Try again or copy the track URL.');
-    }
+    }, 60000);
+  } catch (e3) {
+    showToast('Could not download this file.');
   }
 }
 (function bindDirectDownloadClicks() {

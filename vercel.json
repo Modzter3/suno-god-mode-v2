@@ -18,6 +18,9 @@
     },
     "api/blob-put-simple.js": {
       "maxDuration": 60
+    },
+    "api/download-proxy.js": {
+      "maxDuration": 60
     }
   }
 }
