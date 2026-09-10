@@ -2862,13 +2862,6 @@ function randomizeFullMashup() {
   var allMoods = Array.from(new Set([...primary.moods, ...secondary.moods]));
   var allEnergies = Array.from(new Set([...primary.energies, ...secondary.energies]));
   var allKeys = Array.from(new Set([...primary.keys, ...secondary.keys]));
-  // Get ALL available topics from TOPICS constant
-  var allAvailableTopics = [];
-  Object.keys(TOPICS).forEach(function(category) {
-    if (Array.isArray(TOPICS[category])) {
-      allAvailableTopics = allAvailableTopics.concat(TOPICS[category]);
-    }
-  });
   // Randomly select from merged pools
   var randomMood = allMoods[Math.floor(Math.random() * allMoods.length)];
   var randomEnergy = allEnergies[Math.floor(Math.random() * allEnergies.length)];
