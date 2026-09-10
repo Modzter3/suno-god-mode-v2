@@ -1001,7 +1001,7 @@ html.light .chip.suggested {
   <!-- Header -->
   <div class="header">
     <h1><i class="fas fa-bolt" style="font-size:0.8em"></i> SUNO GOD MODE</h1>
-    <p>AI-powered song generator with style prompts, meta tags & lyric formatting</p>
+    <p>Suno v6-ready song generator — natural-language style prompts, lean lyrics structure &amp; slider settings</p>
   </div>
   <div class="main-grid">
     <!-- ==================== CONFIG PANEL ==================== -->
@@ -1298,7 +1298,7 @@ html.light .chip.suggested {
       <!-- Empty state -->
       <div class="empty-state" id="emptyState">
         <i class="fas fa-waveform-lines"></i>
-        <p>Configure your song and hit <strong>Generate</strong> to create<br>Suno-optimized style prompts, lyrics, &amp; instrumentals</p>
+        <p>Configure your song and hit <strong>Generate</strong> to create<br>Suno v6-optimized style prompts, lyrics, &amp; instrumentals</p>
       </div>
       <!-- Parsed output sections -->
       <div id="outputSections" style="display:none">
@@ -1335,7 +1335,7 @@ html.light .chip.suggested {
         <!-- Slider Settings -->
         <div class="output-section fade-in" style="animation-delay:0.15s">
           <div class="output-header">
-            <h3><i class="fas fa-gauge-high"></i> Slider Settings</h3>
+            <h3><i class="fas fa-gauge-high"></i> v6 Slider Settings</h3>
           </div>
           <div class="output-body" id="sliderContent"></div>
         </div>
@@ -1914,7 +1914,7 @@ html.light .chip.suggested {
 <div class="modal-overlay" id="tagModal">
   <div class="modal">
     <div class="modal-top">
-      <h2>Tag Reference</h2>
+      <h2>v6 Tag Reference</h2>
       <button class="modal-close" onclick="closeTagReference()"><i class="fas fa-xmark"></i></button>
     </div>
     <div class="modal-content" id="tagContent"></div>
@@ -2186,13 +2186,10 @@ const TEMPLATES = [
   { id:'hardtekno',name:'Hard Tekno',icon:'💥',g1:'Hardstyle',g2:'Techno',mood:'Aggressive',energy:'Explosive',bpm:150,key:'D minor',instr:['Synth','808s','Electronic Drums','Bass Synth'],vocal:'',style:'' }
 ];
 const TAG_REFERENCE = {
-  'Structure': ['[Intro]','[Verse]','[Pre-Chorus]','[Chorus]','[Post-Chorus]','[Bridge]','[Outro]','[Hook]','[Build]','[Drop]','[Breakdown]','[Break]','[Instrumental]','[Solo]','[Interlude]','[Final Chorus]','[Chorus x2]','[Fade Out]','[Beat switch]','[Hook Loop]'],
-  'Vocal Style': ['[Whisper]','[Spoken word]','[Rap]','[Chant vocals]','[Harmonies]','[Falsetto]','[Belting]','[Growl]','[Crooning]','[Operatic]','[Screaming]','[Anthemic chorus]','[Autotuned delivery]','[Raspy lead vocal]'],
-  'Vocal Emotion': ['[Crying voice]','[Angry tone]','[Mocking laughter]','[Vulnerable]','[Defiant]','[Sultry]','[Joyful]','[Melancholic]','[Intimate]'],
-  'Vocal Effects': ['[Reverb]','[Delay]','[AutoTune]','[Distorted Vocals]','[Vocoder]','[Telephone Effect]','[Tape-Saturated]','[Harmonized chorus]'],
-  'Atmosphere': ['[Birds chirping]','[Rain]','[Thunder]','[Ocean waves]','[City ambience]','[Fire crackling]','[Applause]','[Cheering]','[Crowd noise]','[Stadium ambience]','[Record scratch]','[Static]','[Silence]'],
-  'Production': ['[Lo-fi]','[Gritty]','[Clean]','[Raw]','[Lush]','[Sparse]','[Atmospheric]','[Punchy]','[Wide stereo]','[Effect: Sidechain]','[Effect: Bitcrusher]','[Riser build]','[Bass drop]'],
-  'Dynamics': ['[Soft verse | low vocal intensity]','[Power chorus | full band]','[Half-time breakdown]','[Gang shouts on last line]','[Palm-muted guitars]','[Pedal steel guitar]']
+  'Structure (always use)': ['[Intro]','[Verse 1]','[Verse 2]','[Pre-Chorus]','[Chorus]','[Post-Chorus]','[Bridge]','[Outro]','[Hook]','[Build]','[Drop]','[Breakdown]','[Break]','[Instrumental]','[Solo]','[Interlude]','[Final Chorus]','[Fade Out]'],
+  'Local cues (one per section, only when needed)': ['[Bridge - drums drop out, intimate vocal]','[Chorus - stacked harmonies]','[Verse - half-time feel]','[Drop - bass and synth lead]','[Outro - strip to piano only]'],
+  'Delivery (sparingly)': ['[Whisper]','[Spoken word]','[Rap]','[Harmonies]','[Falsetto]','[Belting]','[Growl]','[Screaming]'],
+  'Atmosphere (sparingly)': ['[Applause]','[Crowd noise]','[Stadium ambience]','[Record scratch]','[Silence]']
 };
 const GENRE_ARTISTS = {};
 var NICHE_ARTISTS = {};
@@ -2308,46 +2305,71 @@ const TOPIC_NARRATIVES = [
   { name: 'Altered Reality', categories: ['Dark & Existential', 'Nostalgia & Memory', 'Faith & Spirituality'] },
   { name: 'Transcendence Quest', categories: ['Faith & Spirituality', 'Celebration', 'Flex & Confidence'] }
 ];
-const SUNO_RULES = `You are an expert Suno AI song creator AND a music encyclopedia who deeply understands the sonic identity of every genre and subgenre. Generate a complete song with a creative title.
-CRITICAL FORMAT RULES:
+const SUNO_RULES = `You are an expert Suno AI song creator targeting Suno v6 (September 2026). v6 understands natural musical language deeply — vocals, instrumentation, structure, mood, references, and overall feel. Generate a complete song with a creative title.
+
+TWO-FIELD ARCHITECTURE — NON-NEGOTIABLE:
+Suno v6 reads TWO separate fields. Never blur them:
+- STYLE PROMPT (Style box): HOW the song sounds — genre, era, mood, tempo feel, instruments, vocal character, production texture, energy, vibe. No lyrics. No story.
+- LYRICS (Lyrics box): WHAT gets sung and WHERE sections fall — actual words plus structural section labels. No global production brief here.
+
+Architecture first. Syntax second. v6 rewards vivid plain-language descriptors over magic parameter tags.
+
+CRITICAL FORMAT RULES (Lyrics box):
 - (adlibs) in parentheses are sung ad-libs — place them naturally throughout verses and choruses
-- [ ] brackets are for structure/production cues — NEVER SUNG
+- [ ] brackets are for structure cues — NEVER SUNG, never contain lyric text
 - ALL CAPS = louder delivery (use max 1-3 words per section, not entire lines)
 - "" = spoken/whispered delivery
-- Use | pipes for meta tag stacking inside brackets (max 4-6 per bracket)
-- Emotion delivery tags go on their own line BEFORE the emotional lyric line
 - Long ellipsis (...........) = stretch/sustain a note
+- Emotion delivery tags go on their own line BEFORE the emotional lyric line
+
+v6 LYRICS TAGGING — LIGHTER & SMARTER:
+- ALWAYS use clear section labels: [Verse 1], [Pre-Chorus], [Chorus], [Bridge], [Outro] — essential for structure
+- Add ONE concise local performance cue only when a section needs something different from the global style (e.g. [Bridge - drums drop out, intimate vocal])
+- Do NOT stack 4-6 tags with pipes in every bracket — v6 handles structure from labels + your Style prompt; dense bracket stacks often fight the output
+- Do NOT repeat global genre, mood, or production direction inside every section tag
+- NEVER use parameter-style tags — they do nothing: [BPM: 120], [Reverb: 30%], [Bass: 80%]. Describe sound in the Style box instead ("wet reverb", "sub-bass forward", "mid-tempo groove around 95 BPM")
+- [Build], [Drop], [Instrumental], [Break] are fine when the genre supports them — don't force EDM structure onto a folk ballad
+- Write each section self-contained enough that v6 could later edit just that section in plain language ("make the chorus a gospel choir")
+
 STYLE PROMPT RULES — THIS IS THE MOST IMPORTANT SECTION:
-Your style prompt MUST capture the authentic sonic fingerprint of the genre like a real producer would describe it. Think about what makes this genre SOUND the way it does — the specific production techniques, vocal deliveries, textures, and energy that define it.
-Write the style prompt the way a real A&R or producer would pitch the sound. Include:
-- Era and region/scene when relevant (2020s Atlanta, 90s Seattle, 80s Tokyo, etc.)
-- Specific vocal delivery descriptors (sassy delivery, raspy tone, breathy vocals, rapid-fire flow, guttural screams — NOT just "male vocals")
-- Exact production textures (distorted 808s, crispy hi-hat rolls, tape-saturated, lo-fi bitcrushed, warm analog pads — NOT just "synth")
-- Energy and vibe descriptors (mosh pit energy, late-night drive, club-ready, stadium anthem, bedroom pop intimacy)
-- Rhythm and groove feel (bouncy percussion, syncopated groove, blast beats, half-time feel, dembow riddim)
-- Cultural sonic markers that define the subgenre
-EXAMPLES OF GOOD STYLE PROMPTS:
-- Trap: "2024, Atlanta, trap, hip hop, male vocals, aggressive delivery, confident persona, heavy distorted 808 bass, crispy hi-hat rolls, dark melodic synths, rapid-fire flow, hard-hitting snares, menacing energy, street anthem, punchy percussion, 140 BPM, D minor"
-- Phonk: "2023, Memphis-inspired phonk, dark trap, male vocals, low raspy delivery, cowbell patterns, pitched-down vocal samples, heavy 808 slides, lo-fi texture, eerie synths, trunk-rattling bass, horror movie atmosphere, aggressive, gritty, 130 BPM, C# minor"
-- Pop Punk: "2004, pop punk, punk rock, male vocals, raspy nasal delivery, fast power chords, driving drum beat, melodic bass lines, anthemic gang vocals, youthful angst, energetic, nostalgic, catchy hooks, palm-muted verses, explosive choruses, 168 BPM, E minor"
-- R&B: "2023, R&B, neo-soul, female vocals, breathy falsetto, intimate delivery, silky smooth, warm Rhodes piano, deep sub bass, soft brushed drums, lush string pads, late-night atmosphere, sensual, vulnerable, slow groove, 68 BPM, Ab major"
-- Drill: "2022, UK drill, hip hop, male vocals, cold monotone delivery, sliding 808 bass, sharp snare patterns, eerie piano melodies, dark pads, menacing, street-ready, aggressive, rapid flow, 140 BPM, C# minor"
-- Grunge: "1994, Seattle, grunge, alternative rock, male vocals, raw raspy delivery, heavy distorted guitars, thick fuzzy bass, loose powerful drumming, angst-filled, lo-fi grit, dynamic quiet-loud contrast, apathetic energy, feedback-drenched, 126 BPM, E minor"
-- Hyperpop: "2021, hyperpop, electropop, female vocals, pitch-shifted delivery, heavy autotune, distorted bass drops, glitchy percussion, maximalist production, sugar-coated chaos, bubblegum meets industrial, bright synths, fast tempo, chaotic energy, 160 BPM, E minor"
+v6 rewards vivid, written-out descriptors over tag soup. Write like a producer pitching the sound to an A&R — conversational but precise.
+
+Include 4-7 clear signals (restraint beats length):
+- Era and region/scene when relevant (2020s Atlanta, 90s Seattle, 80s Tokyo)
+- Genre and subgenre (1-2 max)
+- Vocal delivery character (raspy tenor, breathy falsetto, rapid-fire flow — NOT just "male vocals")
+- 2-3 key instruments or textures that define the genre
+- Production feel (tape-saturated, lo-fi bitcrushed, wide stereo, punchy sidechain)
+- Energy and mood (late-night drive, stadium anthem, menacing, intimate)
+- Tempo feel and key as plain text at the end (e.g. "around 140 BPM, D minor")
+- Optional vibe reference when it clarifies intent ("feels like midnight on a rooftop", "sounds like walking home after a rainstorm")
+
+Front-load the most defining descriptors in the first 20-30 words — v6 weights early Style text heavily.
+Up to 1000 characters. Specificity over length.
+
+EXAMPLES OF GOOD v6 STYLE PROMPTS:
+- Trap: "2024 Atlanta trap — heavy distorted 808s, crispy hi-hat rolls, dark melodic synths, aggressive male delivery with rapid-fire flow, menacing street-anthem energy, punchy hard-hitting snares, around 140 BPM, D minor"
+- Phonk: "Memphis-inspired phonk, low raspy male vocal, cowbell patterns and pitched-down samples, heavy 808 slides over lo-fi eerie synths, trunk-rattling bass, horror-movie grit, around 130 BPM, C# minor"
+- Pop Punk: "2004 pop punk — raspy nasal male vocal, fast palm-muted power chords into explosive gang-vocal choruses, driving drums, youthful angst, nostalgic and anthemic, around 168 BPM, E minor"
+- R&B: "Neo-soul R&B, breathy female falsetto, intimate late-night delivery over warm Rhodes and deep sub bass, soft brushed drums, lush string pads, sensual and vulnerable, slow groove, around 68 BPM, Ab major"
+- Drill: "UK drill, cold monotone male delivery, sliding 808 bass, sharp snare patterns, eerie piano and dark pads, menacing street-ready aggression, around 140 BPM, C# minor"
+- Grunge: "1994 Seattle grunge, raw raspy male vocal, heavy distorted guitars and thick fuzzy bass, loose powerful drums, quiet-loud dynamic contrast, feedback-drenched apathy, around 126 BPM, E minor"
+- Hyperpop: "Hyperpop chaos — pitch-shifted female vocal buried in autotune, distorted bass drops and glitchy percussion, maximalist sugar-coated industrial brightness, around 160 BPM, E minor"
+
 BAD STYLE PROMPT (generic AI slop — NEVER do this):
-- "EDM, synth, drums, female vocals, energetic, uplifting, 128 BPM" ← This is trash. Too generic. Says nothing about the actual sound.
-- Front-load the most defining sonic descriptors in the first 20-30 words
-- Up to 1000 characters
-- Always include BPM and key at the end
+- "EDM, synth, drums, female vocals, energetic, uplifting, 128 BPM" ← Too generic. Says nothing about the actual sound.
+- Cramming the song story or lyric concept into the Style box ← belongs in Lyrics only.
+
 ARTIST CHANNELING (CRITICAL):
 If a reference artist is provided, you MUST channel their EXACT sonic identity into the style prompt AND their lyrical style into the lyrics. This means:
 - Style prompt: Describe the sound AS IF this artist produced the track. Use their era, their region, their signature production techniques, their vocal delivery style, their energy. Think about what makes THEIR music instantly recognizable and put that into the style prompt.
 - Lyrics: Write in the same style, tone, vocabulary, flow patterns, and emotional register this artist uses. If it's Playboi Carti, write with that minimal, ad-lib-heavy, baby voice energy. If it's Adele, write with that gut-wrenching emotional depth and powerful delivery. If it's MF DOOM, write with dense wordplay and abstract storytelling. Match their vibe EXACTLY.
 - Do NOT mention the artist's name in the style prompt or lyrics — just channel their sonic DNA and writing style.
+
 SECTION RULES:
-- Every section must start with a section tag before any lyrics
-- Stack relevant meta tags with pipes: [Chorus | anthemic | stacked harmonies]
-- Use category tags for precision: [Vocal: ...], [Instrumentation: ...], [Mix: ...]
+- Every section must start with a section label before any lyrics
+- Use at most one local performance cue per section, only when that section genuinely differs from the global style
+- Prefer plain section labels over category-tag syntax like [Vocal: ...] or [Mix: ...] — put global vocal and mix character in the Style prompt instead
 VERSE & SECTION LENGTH — GENRE-AUTHENTIC (MANDATORY):
 This is a full song, not a demo sketch. Do NOT output thin "verse" stubs (e.g. 2–4 lyric lines) unless the genre is deliberately ultra-minimal hardcore/powerviolence one-liner style.
 Default song flow for vocal tracks: optional [Intro] → [Verse 1] → optional [Pre-Chorus] (when genre uses it) → [Chorus] → [Verse 2] → optional [Verse 3] OR [Bridge] → [Chorus] / [Final Chorus] / [Outro]. Label every section.
@@ -2383,11 +2405,13 @@ OUTPUT FORMAT — use EXACTLY these delimiters on their own lines:
 ===STYLE PROMPT===
 (the style prompt for Suno's style prompt box — MUST capture the authentic sonic DNA of the genre as described above)
 ===LYRICS===
-(complete lyrics with all meta tags, section tags, formatting symbols, and proper structure)
+(complete lyrics with section labels, light local cues where needed, formatting symbols, and proper structure)
 ===SLIDER SETTINGS===
 Weirdness: X%
 Style Influence: Y%
-(brief explanation)
+Variety: Z%
+Max Mode: On/Off
+(brief explanation for each — v6 defaults: Weirdness 50%, Style Influence 70%, Variety 0% when style prompt is precise)
 CLICHÉ AVOIDANCE — MANDATORY:
 You MUST avoid the following clichéd elements. Using any of these will ruin the song. Write with ORIGINALITY.
 BANNED PHRASES (never use these or close variants):
@@ -3133,13 +3157,14 @@ function buildPrompt() {
     prompt += '===STYLE PROMPT===\n(The style prompt capturing the sonic DNA)\n\n';
     prompt += '===SLIDER SETTINGS===\n(The slider settings)\n\n';
     prompt += 'DO NOT generate any lyrics or ===LYRICS=== section. This is instrumental only.\n';
-    prompt += 'The TITLE should reflect the mood/atmosphere of the instrumental. The STYLE PROMPT should describe the sonic character, production, instrumentation, textures, and energy as a producer or A&R would.\n';
+    prompt += 'The TITLE should reflect the mood/atmosphere of the instrumental. The STYLE PROMPT should describe the sonic character, production, instrumentation, textures, energy, and optional vibe reference as a producer or A&R would — v6 natural-language style, not tag soup.\n';
     prompt += 'Output ONLY in the specified format with the ===TITLE===, ===STYLE PROMPT===, and ===SLIDER SETTINGS=== delimiters. NO ===LYRICS=== section.';
   } else {
     prompt += '\nGenerate a professional, creative, emotionally resonant song with a catchy title. Make lyrics vivid and original — write like a REAL artist in this genre, not like an AI.\n';
-    prompt += 'The STYLE PROMPT is critical — it must capture the authentic sonic DNA of this genre. Think about real artists, real production styles, real vocal deliveries. Describe the SOUND the way a producer or A&R would: era, region, specific textures, delivery style, percussion feel, bass character, atmosphere. NOT generic tags.\n';
+    prompt += 'Target Suno v6: keep Style and Lyrics strictly separated. Style = vivid natural-language sonic description (4-7 signals, front-loaded). Lyrics = words + lean section labels, not dense bracket stacks or parameter tags.\n';
+    prompt += 'The STYLE PROMPT is critical — it must capture the authentic sonic DNA of this genre. Think about real artists, real production styles, real vocal deliveries. Describe the SOUND the way a producer or A&R would: era, region, specific textures, delivery style, percussion feel, bass character, atmosphere, optional vibe reference. NOT generic tag lists.\n';
     prompt += 'CRITICAL: Follow the CLICHÉ AVOIDANCE section strictly. Zero tolerance for banned phrases, rhyme pairs, imagery, metaphors, or overused words. Every line must feel fresh and specific.\n';
-    prompt += 'Use proper Suno meta tags and formatting. Output ONLY in the specified format with the ===TITLE===, ===STYLE PROMPT===, ===LYRICS===, and ===SLIDER SETTINGS=== delimiters.';
+    prompt += 'Use v6-appropriate section labels and formatting (light local cues only when needed). Output ONLY in the specified format with the ===TITLE===, ===STYLE PROMPT===, ===LYRICS===, and ===SLIDER SETTINGS=== delimiters.';
   }
   return prompt;
 }
@@ -3327,7 +3352,7 @@ function parseAndDisplay(content) {
   document.getElementById('titleContent').innerHTML = highlightSuno(rawTitleContent);
   document.getElementById('styleContent').innerHTML = highlightSuno(rawStyleContent);
   document.getElementById('lyricsContent').innerHTML = highlightSuno(rawLyricsContent);
-  document.getElementById('sliderContent').innerHTML = highlightSuno(rawSliderContent || 'Weirdness: 30%\nStyle Influence: 85%');
+  document.getElementById('sliderContent').innerHTML = highlightSuno(rawSliderContent || 'Weirdness: 50%\nStyle Influence: 70%\nVariety: 0%\nMax Mode: Off');
   // Hide lyrics section in instrumental mode
   var lyricsSection = document.querySelector('[id="outputSections"] .output-section:nth-child(3)');
   if (lyricsSection) {
@@ -3529,9 +3554,11 @@ function parseSliderPercents(text) {
   if (!text) return out;
   var w = text.match(/weirdness\s*[:.]?\s*(\d+)\s*%/i);
   var s = text.match(/style\s*influence\s*[:.]?\s*(\d+)\s*%/i);
+  var v = text.match(/variety\s*[:.]?\s*(\d+)\s*%/i);
   var a = text.match(/(?:^|\n)\s*audio\s*[:.]?\s*(\d+)\s*%/im);
   if (w) out.weirdness = Math.min(100, parseInt(w[1], 10)) / 100;
   if (s) out.styleInf = Math.min(100, parseInt(s[1], 10)) / 100;
+  if (v) out.variety = Math.min(100, parseInt(v[1], 10)) / 100;
   if (a) out.audio = Math.min(100, parseInt(a[1], 10)) / 100;
   return out;
 }
@@ -5179,7 +5206,7 @@ function applyHistoryRecord(item) {
   rawTitleContent = title;
   rawStyleContent = style;
   rawLyricsContent = lyrics;
-  rawSliderContent = sliders || 'Weirdness: 30%\nStyle Influence: 85%';
+  rawSliderContent = sliders || 'Weirdness: 50%\nStyle Influence: 70%\nVariety: 0%\nMax Mode: Off';
   document.getElementById('titleContent').innerHTML = highlightSuno(rawTitleContent);
   document.getElementById('styleContent').innerHTML = highlightSuno(rawStyleContent);
   document.getElementById('lyricsContent').innerHTML = highlightSuno(rawLyricsContent);
@@ -5344,7 +5371,7 @@ function showToast(msg) {
 /* ===== TAG REFERENCE ===== */
 function openTagReference() {
   var content = document.getElementById('tagContent');
-  var html = '';
+  var html = '<p class="history-hint" style="margin-bottom:14px">Suno v6: put global sound in the <strong>Style</strong> box. Use <strong>section labels</strong> in Lyrics. Add <strong>one local cue</strong> only when a section needs to differ. Avoid dense pipe stacks and parameter tags like <code>[BPM: 120]</code>.</p>';
   Object.keys(TAG_REFERENCE).forEach(function(cat) {
     html += '<div class="tag-category">';
     html += '<h4>' + cat + '</h4>';
