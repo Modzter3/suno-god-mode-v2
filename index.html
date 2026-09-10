@@ -874,6 +874,47 @@ html.light .chip.suggested {
 .chip.suggested:hover { border-color: var(--accent3); transform: translateY(-1px); }
 .chip.suggested.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); box-shadow: none; }
 .topic-cat-label.suggested { color: var(--accent3); }
+.topic-cat-label.pack { color: var(--accent); }
+.concept-subsection { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+.concept-subsection label { margin-top: 0; }
+.concept-setting-row { display: flex; gap: 8px; align-items: center; }
+.concept-setting-row input { flex: 1; }
+.concept-setting-row button {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--accent);
+  width: 40px;
+  height: 40px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.concept-setting-row button:hover { border-color: var(--accent); background: var(--accent-dim); }
+.selected-concept-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 10px;
+}
+.selected-concept-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 3px 10px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.selected-concept-tag.twist { border-color: var(--accent2); color: var(--accent2); }
+.selected-concept-tag.setting { border-color: var(--accent3); color: var(--accent3); }
+.selected-concept-tag .remove-topic {
+  cursor: pointer;
+  opacity: 0.7;
+  font-size: 0.65rem;
+}
 /* Syntax highlighting */
 .hl-bracket { color: var(--tag-color); font-weight: 500; }
 .hl-paren { color: var(--paren-color); }
@@ -1001,7 +1042,7 @@ html.light .chip.suggested {
   <!-- Header -->
   <div class="header">
     <h1><i class="fas fa-bolt" style="font-size:0.8em"></i> SUNO GOD MODE</h1>
-    <p>Suno v6-ready song generator — natural-language style prompts, lean lyrics structure &amp; slider settings</p>
+    <p>Suno v6-ready generator — concept packs, narrative twists, natural-language style prompts &amp; lyrics</p>
   </div>
   <div class="main-grid">
     <!-- ==================== CONFIG PANEL ==================== -->
@@ -1216,23 +1257,37 @@ html.light .chip.suggested {
           <p id="rhymeSchemeDesc" style="margin-top:8px; font-size:13px; color:var(--text-secondary); line-height:1.4">Scheme will be suggested based on your selected genre.</p>
         </div>
       </div>
-      <!-- Topic Selector -->
+      <!-- Topic & Concept -->
       <div class="card" style="margin-bottom:12px">
         <div class="card-header open" onclick="toggleCard(this)">
-          <h3><i class="fas fa-compass"></i> Topic</h3>
+          <h3><i class="fas fa-compass"></i> Topic &amp; Concept</h3>
           <i class="fas fa-chevron-down chevron"></i>
         </div>
         <div class="card-body open">
           <div class="topic-filter-row">
             <select id="topicCategory" onchange="filterTopics()">
               <option value="all">All Categories</option>
+              <option value="packs">Concept Packs ★</option>
             </select>
-            <button class="topic-surprise" onclick="surpriseTopics()"><i class="fas fa-dice"></i> Surprise Me</button>
+            <button class="topic-surprise" onclick="surpriseTopics()" title="Random topic + narrative twist + setting"><i class="fas fa-dice"></i> Surprise Me</button>
           </div>
           <div class="topic-chips-wrap">
             <div id="topicChipsContainer"></div>
           </div>
-          <div class="selected-topics-bar" id="selectedTopicsBar"></div>
+          <div class="concept-subsection">
+            <label>Narrative twist</label>
+            <div class="topic-chips-wrap" style="max-height:140px">
+              <div id="twistChipsContainer"></div>
+            </div>
+          </div>
+          <div class="concept-subsection">
+            <label>Setting</label>
+            <div class="concept-setting-row">
+              <input type="text" id="conceptSetting" placeholder="e.g. luxury hotel, championship locker room, penthouse at 3AM…" oninput="updateConceptBar()" />
+              <button type="button" onclick="randomizeSetting()" title="Random setting"><i class="fas fa-dice"></i></button>
+            </div>
+          </div>
+          <div class="selected-concept-bar" id="selectedConceptBar"></div>
         </div>
       </div>
       <!-- Song Concept -->
@@ -1946,7 +2001,93 @@ const INSTRUMENTS = [
   'Congas','Steel Drums','Sitar','Mandolin','Slide Guitar','Tabla',
   'Djembe','Kalimba','Accordion','Fiddle','Marimba','Theremin'
 ];
+const CONCEPT_PACK_CATEGORIES = [
+  'Power & Status',
+  'Psychological',
+  'Relationships Without Clichés',
+  'Technology & Modern Life',
+  'Money & Work',
+  'Crime / Thriller Fiction',
+  'Cinematic Character Songs',
+  'Philosophical',
+  'Historical / Alternate History',
+  'Spiritual / Biblical',
+  'Science Fiction',
+  'Horror',
+  'Sports / Competition',
+  'Lifestyle / Swagger',
+  'Fame & Culture',
+  'Surreal / Experimental'
+];
+const CONCEPT_ENGINES = [
+  { id: 'perspective-flip', name: 'Perspective Flip', description: "Tell the story from the antagonist's perspective." },
+  { id: 'hidden-cost', name: 'Hidden Cost', description: 'Take something desirable and reveal what it costs.' },
+  { id: 'one-night', name: 'One Night', description: 'The entire song happens during one specific night.' },
+  { id: 'before-after', name: 'Before / After', description: 'Verse 1 before the event, Verse 2 after the event.' },
+  { id: 'confession', name: 'Confession', description: 'The narrator admits something they normally hide.' },
+  { id: 'unreliable-narrator', name: 'Unreliable Narrator', description: "Lyrics gradually reveal the narrator's version is questionable." },
+  { id: 'victory-catch', name: 'Victory With a Catch', description: 'The protagonist wins, but the win creates a worse problem.' },
+  { id: 'object-metaphor', name: 'Object as Metaphor', description: 'Build the entire song around one physical object without overexplaining it.' },
+  { id: 'two-voices', name: 'Two Voices', description: 'Two characters describe the same event differently.' },
+  { id: 'countdown', name: 'Countdown', description: 'Each section moves closer to an irreversible event.' }
+];
+const CONCEPT_SETTINGS = [
+  'luxury hotel suite at 3AM',
+  'championship locker room after the final whistle',
+  'private jet above the Atlantic',
+  'underground parking garage',
+  'corner office after everyone left',
+  'penthouse balcony overlooking the city',
+  'abandoned mall food court',
+  'high-stakes poker room',
+  'witness-protection safe house',
+  'sold-out arena tunnel',
+  'rainy subway platform at last train',
+  'family dinner table that went silent',
+  'rooftop pool party winding down',
+  'hospital waiting room fluorescent hum',
+  'deserted highway rest stop',
+  'art gallery after closing',
+  'recording studio at 4AM',
+  'college dorm during a blackout',
+  'yacht deck before sunrise',
+  'courtroom hallway before the verdict'
+];
+const TOPIC_HOOKS = {
+  'Quiet power': 'The narrator secretly owns the company everyone is trying to impress.',
+  'Impostor syndrome': 'They just won the award but still rehearse sounding surprised in the mirror.',
+  'Mutually assured heartbreak': 'Both people know this ends badly and keep choosing each other anyway.',
+  'Algorithm addiction': 'They know the feed is lying but scroll until their hands go numb.',
+  'Golden handcuffs': 'The salary finally arrived and freedom quietly left the building.',
+  'Getaway driver': 'They never planned to be the one who knows every exit route.',
+  'Fallen emperor': 'The crown is gone but the habits of command remain.',
+  'Whether free will exists': 'Every choice feels chosen until the pattern becomes obvious.',
+  'Final night of an empire': 'The city still celebrates while the walls are already cracking.',
+  'Job-style endurance': 'Everything taken except the refusal to curse the silence.',
+  'Colony rebellion': 'The ship was built to save them and became the cage.',
+  'Haunted luxury hotel': 'Every suite is perfect and every guest checks out wrong.',
+  'Aging champion\'s final season': 'The body knows it is over before the crowd does.',
+  'Understated luxury': 'Nothing logo-heavy — just the quiet certainty of always getting the table.',
+  'Performative activism': 'They posted the cause and forgot what it cost the people living it.',
+  'Arguing with your future self': 'Tomorrow keeps interrupting with better evidence.'
+};
 const TOPICS = {
+  'Power & Status': ['Quiet power','Inherited wealth vs earned wealth','Social climbing','Private influence','Reputation','Old money','Self-made','Envy at the top','Losing status','Being underestimated'],
+  'Psychological': ['Impostor syndrome','Obsessive ambition','Emotional detachment','Intrusive thoughts','Perfectionism','Fear of becoming ordinary','Ego death','Identity fracture','Decision paralysis'],
+  'Relationships Without Clichés': ['Emotional unavailability','Strategic dating','Mutually assured heartbreak','Staying for convenience','Attraction to the wrong personality','Relationship power imbalance','Reconnecting years later','Knowing someone too well'],
+  'Technology & Modern Life': ['AI companionship','Algorithm addiction','Doomscrolling','Digital immortality','Online personas','Surveillance culture','Losing humanity to convenience','Deepfakes','Virtual relationships','Creator burnout'],
+  'Money & Work': ['Golden handcuffs','First million feels empty','Corporate betrayal','Unemployment after success','Gambling on yourself','Generational wealth','Debt anxiety','Career obsession','Working while everyone sleeps'],
+  'Crime / Thriller Fiction': ['Getaway driver','Art heist','Double agent','Witness protection','Crooked detective','Casino robbery','Con artist romance','Cartel accountant','Missing evidence','Someone in the crew is informing'],
+  'Cinematic Character Songs': ['Fallen emperor','Disgraced champion','Retired assassin','Corrupt king','Reluctant heir','Exiled general','Underground fighter','Doomed explorer','Last astronaut','Outlaw preacher'],
+  'Philosophical': ['Whether free will exists','What success costs','Mortality without religion','Whether revenge actually satisfies','Memory changing truth','Becoming the person you hated','Meaning after achieving the goal'],
+  'Historical / Alternate History': ['Final night of an empire','Cold War spy','Prohibition nightclub','Samurai facing modernization','Pirate trial','Ancient general before battle','1920s criminal empire','Future archaeologists studying us'],
+  'Spiritual / Biblical': ['Job-style endurance','Ecclesiastes-inspired emptiness','Prodigal return','Temptation in the wilderness','Pride before collapse','Exile and restoration','False prophets','Wisdom versus wealth','Judgment of a corrupt city'],
+  'Science Fiction': ['Colony rebellion','Generation ship mutiny','Dying star civilization','Android gaining consciousness','Time traveler unable to fix one event','Human clone discovering the original','First contact gone wrong'],
+  'Horror': ['Haunted luxury hotel','Voice in the walls','Ritual gone wrong','Town where nobody sleeps','Possession from the entity\'s perspective','Cursed inheritance','House that rearranges itself'],
+  'Sports / Competition': ['Aging champion\'s final season','Backup player finally starting','Fighter after first loss','Prodigy under impossible expectations','Rivalry with mutual respect','Winning but feeling nothing'],
+  'Lifestyle / Swagger': ['Understated luxury','Private jet fatigue','Tailored confidence','City-hopping','Penthouse solitude','Walking in already knowing the outcome','Expensive taste without logo flexing'],
+  'Fame & Culture': ['Performative activism','Fame economy','Everyone selling themselves','Attention as currency','Loneliness in crowded cities','Status anxiety','Fake expertise','Outrage culture'],
+  'Surreal / Experimental': ['Arguing with your future self','City speaking to the protagonist','Money as a literal character','Sleep refusing to come home','Time as a landlord','Memory as contraband'],
   'Love & Relationships': ['New crush','Toxic situationship','Growing apart','Caught cheating','Secret affair','Ex still texting','Long distance','First date nerves','On-again off-again','Forbidden love','Rebound','Divorce papers','Codependency','Love triangle','Ghosted','Happy new love','Proposal moment','Wedding day bliss','Deep connection','Unconditional love','Falling deeper','Perfect match','Dancing in love','Growing together','Soulmate found','Second chances in love','Forever kind of love','Celebrating love','Loyalty and devotion','Trust and commitment'],
   'Flex & Confidence': ['Come-up story','Self-made','Glow up','Revenge era','Boss mode','Stunting on doubters','New money','Untouchable','Victory lap','Drip check','Top of the food chain','Built different'],
   'Personal Struggle': ['Addiction','Mental health','Identity crisis','Imposter syndrome','Burnout','Starting over','Trust issues','Anger management','Loneliness in a crowd','Therapy session','Relapse','Insomnia','Anxiety spiral'],
@@ -2303,8 +2444,38 @@ const TOPIC_NARRATIVES = [
   { name: 'Street Chronicles', categories: ['Street & Hustle', 'Social Commentary', 'Personal Struggle'] },
   { name: 'Cosmic Journey', categories: ['Nostalgia & Memory', 'Faith & Spirituality', 'Nature & Place'] },
   { name: 'Altered Reality', categories: ['Dark & Existential', 'Nostalgia & Memory', 'Faith & Spirituality'] },
-  { name: 'Transcendence Quest', categories: ['Faith & Spirituality', 'Celebration', 'Flex & Confidence'] }
+  { name: 'Transcendence Quest', categories: ['Faith & Spirituality', 'Celebration', 'Flex & Confidence'] },
+  { name: 'Quiet Dominance', categories: ['Power & Status', 'Psychological', 'Lifestyle / Swagger'] },
+  { name: 'Digital Dread', categories: ['Technology & Modern Life', 'Psychological', 'Fame & Culture'] },
+  { name: 'Heist Night', categories: ['Crime / Thriller Fiction', 'Money & Work', 'Night Life & Vibes'] },
+  { name: 'Epic Fall', categories: ['Cinematic Character Songs', 'Philosophical', 'Loss & Grief'] },
+  { name: 'Modern Romance Fracture', categories: ['Relationships Without Clichés', 'Psychological', 'Night Life & Vibes'] },
+  { name: 'Cosmic Horror', categories: ['Science Fiction', 'Horror', 'Dark & Existential'] },
+  { name: 'Sacred Weight', categories: ['Spiritual / Biblical', 'Philosophical', 'Personal Struggle'] },
+  { name: 'Final Round', categories: ['Sports / Competition', 'Psychological', 'Celebration'] },
+  { name: 'Surreal Spiral', categories: ['Surreal / Experimental', 'Dark & Existential', 'Psychological'] }
 ];
+const GENRE_CONCEPT_PACKS = {
+  'Trap': ['Power & Status', 'Money & Work', 'Lifestyle / Swagger', 'Psychological'],
+  'Hip Hop': ['Power & Status', 'Money & Work', 'Crime / Thriller Fiction', 'Fame & Culture'],
+  'Rap': ['Power & Status', 'Street & Hustle', 'Crime / Thriller Fiction', 'Money & Work'],
+  'Drill': ['Crime / Thriller Fiction', 'Power & Status', 'Psychological', 'Street & Hustle'],
+  'Phonk': ['Crime / Thriller Fiction', 'Horror', 'Dark & Existential', 'Night Life & Vibes'],
+  'R&B': ['Relationships Without Clichés', 'Psychological', 'Lifestyle / Swagger', 'Night Life & Vibes'],
+  'Pop': ['Relationships Without Clichés', 'Fame & Culture', 'Psychological', 'Celebration'],
+  'Rock': ['Cinematic Character Songs', 'Rebellion & Freedom', 'Philosophical', 'Personal Struggle'],
+  'Metal': ['Cinematic Character Songs', 'Horror', 'Philosophical', 'Dark & Existential'],
+  'Country': ['Historical / Alternate History', 'Money & Work', 'Nostalgia & Memory', 'Spiritual / Biblical'],
+  'Electronic': ['Technology & Modern Life', 'Surreal / Experimental', 'Night Life & Vibes'],
+  'EDM': ['Night Life & Vibes', 'Technology & Modern Life', 'Surreal / Experimental', 'Celebration'],
+  'House': ['Night Life & Vibes', 'Lifestyle / Swagger', 'Technology & Modern Life'],
+  'Techno': ['Technology & Modern Life', 'Surreal / Experimental', 'Dark & Existential'],
+  'Ambient': ['Philosophical', 'Surreal / Experimental', 'Nature & Place'],
+  'Jazz': ['Relationships Without Clichés', 'Night Life & Vibes', 'Philosophical'],
+  'Classical': ['Cinematic Character Songs', 'Historical / Alternate History', 'Philosophical'],
+  'Gospel': ['Spiritual / Biblical', 'Celebration', 'Personal Struggle'],
+  'Afrobeat': ['Lifestyle / Swagger', 'Celebration', 'Fame & Culture']
+};
 const SUNO_RULES = `You are an expert Suno AI song creator targeting Suno v6 (September 2026). v6 understands natural musical language deeply — vocals, instrumentation, structure, mood, references, and overall feel. Generate a complete song with a creative title.
 
 TWO-FIELD ARCHITECTURE — NON-NEGOTIABLE:
@@ -2485,6 +2656,7 @@ async function parseSSEStream(response, onDelta) {
 let selectedTemplate = null;
 let selectedInstruments = new Set();
 let selectedTopics = [];
+let selectedTwistId = '';
 let isGenerating = false;
 let isConcepting = false;
 let currentArtist = '';
@@ -2702,23 +2874,13 @@ function randomizeFullMashup() {
   var randomEnergy = allEnergies[Math.floor(Math.random() * allEnergies.length)];
   var randomBPM = Math.floor(Math.random() * (primary.bpmRange[1] - primary.bpmRange[0] + 1)) + primary.bpmRange[0];
   var randomKey = allKeys[Math.floor(Math.random() * allKeys.length)];
-  var randomTopic = allAvailableTopics[Math.floor(Math.random() * allAvailableTopics.length)];
   // Set form fields
   document.getElementById('mood').value = randomMood;
   document.getElementById('energy').value = randomEnergy;
   document.getElementById('bpmSlider').value = randomBPM;
   document.getElementById('bpmVal').textContent = randomBPM;
   document.getElementById('keySelect').value = randomKey;
-  // Get all topic chips and select the random one
-  var topicChips = document.querySelectorAll('[data-topic]');
-  topicChips.forEach(function(chip) {
-    chip.classList.remove('active');
-  });
-  var targetChip = document.querySelector('[data-topic="' + randomTopic + '"]');
-  if (targetChip) {
-    targetChip.classList.add('active');
-    selectedTopics = [randomTopic];
-  }
+  pickRandomConceptCombo({ silent: true });
   // Randomly select an artist that fits the mashup
   var allArtists = [];
   var artistKey1 = Object.keys(NICHE_ARTISTS).find(function(k) { return randomGenre1.toLowerCase().includes(k.toLowerCase()) || k.toLowerCase().includes(randomGenre1.toLowerCase()); });
@@ -2768,27 +2930,58 @@ function buildInstrumentChips() {
     return '<div class="chip" data-inst="' + inst + '" onclick="toggleInstrument(this, \'' + inst + '\')">' + inst + '</div>';
   }).join('');
 }
-/* ===== TOPIC SELECTOR ===== */
+/* ===== TOPIC & CONCEPT SELECTOR ===== */
+function pickRandom(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+function getTopicCategories(filter) {
+  if (filter === 'packs') return CONCEPT_PACK_CATEGORIES.slice();
+  if (filter === 'all') return CONCEPT_PACK_CATEGORIES.concat(Object.keys(TOPICS).filter(function(c) { return CONCEPT_PACK_CATEGORIES.indexOf(c) === -1; }));
+  return [filter];
+}
+function getCategoryForTopic(topic) {
+  return Object.keys(TOPICS).find(function(cat) {
+    return TOPICS[cat].indexOf(topic) !== -1;
+  }) || '';
+}
+function getSelectedTwist() {
+  if (!selectedTwistId) return null;
+  return CONCEPT_ENGINES.find(function(e) { return e.id === selectedTwistId; }) || null;
+}
 function buildTopicSelector() {
   var catSel = document.getElementById('topicCategory');
   Object.keys(TOPICS).forEach(function(cat) {
+    if (CONCEPT_PACK_CATEGORIES.indexOf(cat) !== -1) return;
     var opt = document.createElement('option');
     opt.value = cat;
     opt.textContent = cat;
     catSel.appendChild(opt);
   });
-  renderTopicChips('all');
+  buildTwistChips();
+  renderTopicChips('packs');
+}
+function buildTwistChips() {
+  var container = document.getElementById('twistChipsContainer');
+  if (!container) return;
+  container.innerHTML = CONCEPT_ENGINES.map(function(engine) {
+    var cls = 'chip' + (selectedTwistId === engine.id ? ' active' : '');
+    return '<div class="' + cls + '" data-twist="' + engine.id + '" onclick="toggleTwist(\'' + engine.id + '\')" title="' + engine.description.replace(/"/g, '&quot;') + '">' + engine.name + '</div>';
+  }).join('');
 }
 function renderTopicChips(filter) {
   var container = document.getElementById('topicChipsContainer');
   var html = '';
-  var cats = filter === 'all' ? Object.keys(TOPICS) : [filter];
+  var cats = getTopicCategories(filter);
   var suggestedCats = getSuggestedCategories();
   cats.forEach(function(cat) {
     if (!TOPICS[cat]) return;
+    var isPack = CONCEPT_PACK_CATEGORIES.indexOf(cat) !== -1;
     var isSuggested = suggestedCats.indexOf(cat) !== -1;
-    if (filter === 'all') {
-      html += '<span class="topic-cat-label' + (isSuggested ? ' suggested' : '') + '">' + cat + (isSuggested ? ' ★' : '') + '</span>';
+    if (filter === 'all' || filter === 'packs') {
+      var labelCls = 'topic-cat-label';
+      if (isPack) labelCls += ' pack';
+      if (isSuggested) labelCls += ' suggested';
+      html += '<span class="' + labelCls + '">' + cat + (isSuggested ? ' ★' : '') + '</span>';
     }
     html += '<div class="chip-container" style="margin-bottom:4px">';
     TOPICS[cat].forEach(function(topic) {
@@ -2806,12 +2999,18 @@ function getSuggestedCategories() {
   var g1 = document.getElementById('genre1').value;
   var g2 = document.getElementById('genre2').value;
   var cats = {};
-  if (g1 && GENRE_TOPICS[g1]) {
-    GENRE_TOPICS[g1].forEach(function(c) { cats[c] = true; });
+  function addGenrePacks(genre) {
+    if (!genre) return;
+    if (GENRE_TOPICS[genre]) GENRE_TOPICS[genre].forEach(function(c) { cats[c] = true; });
+    var packKey = Object.keys(GENRE_CONCEPT_PACKS).find(function(k) {
+      return genre.toLowerCase().includes(k.toLowerCase()) || k.toLowerCase().includes(genre.toLowerCase());
+    });
+    if (packKey && GENRE_CONCEPT_PACKS[packKey]) {
+      GENRE_CONCEPT_PACKS[packKey].forEach(function(c) { cats[c] = true; });
+    }
   }
-  if (g2 && GENRE_TOPICS[g2]) {
-    GENRE_TOPICS[g2].forEach(function(c) { cats[c] = true; });
-  }
+  addGenrePacks(g1);
+  addGenrePacks(g2);
   return Object.keys(cats);
 }
 function updateSuggestedTopics() {
@@ -2832,9 +3031,22 @@ function toggleTopic(topic) {
       return;
     }
     selectedTopics.push(topic);
+    var cat = getCategoryForTopic(topic);
+    if (cat && document.getElementById('topicCategory')) {
+      document.getElementById('topicCategory').value = cat;
+      renderTopicChips(cat);
+    }
   }
-  updateTopicUI();
+  updateConceptBar();
   if (selectedTopics.length > 0) {
+    generateConcept();
+  }
+}
+function toggleTwist(id) {
+  selectedTwistId = selectedTwistId === id ? '' : id;
+  buildTwistChips();
+  updateConceptBar();
+  if (selectedTopics.length > 0 || selectedTwistId) {
     generateConcept();
   }
 }
@@ -2842,28 +3054,120 @@ function removeTopic(topic) {
   var idx = selectedTopics.indexOf(topic);
   if (idx !== -1) {
     selectedTopics.splice(idx, 1);
-    updateTopicUI();
+    updateConceptBar();
   }
 }
-function updateTopicUI() {
-  // Update chip active states
+function clearTwist() {
+  selectedTwistId = '';
+  buildTwistChips();
+  updateConceptBar();
+}
+function randomizeSetting() {
+  var settingEl = document.getElementById('conceptSetting');
+  if (!settingEl) return;
+  settingEl.value = pickRandom(CONCEPT_SETTINGS);
+  updateConceptBar();
+  if (selectedTopics.length > 0 || selectedTwistId) {
+    generateConcept();
+  }
+}
+function getConceptSetting() {
+  var el = document.getElementById('conceptSetting');
+  return el ? el.value.trim() : '';
+}
+function buildConceptHook(topic) {
+  if (TOPIC_HOOKS[topic]) return TOPIC_HOOKS[topic];
+  var twist = getSelectedTwist();
+  if (twist) return twist.description;
+  return '';
+}
+function pickRandomConceptCombo(opts) {
+  opts = opts || {};
+  var pick = function(arr) { return arr[Math.floor(Math.random() * arr.length)]; };
+  var suggested = getSuggestedCategories().filter(function(c) { return CONCEPT_PACK_CATEGORIES.indexOf(c) !== -1; });
+  var categoryPool = suggested.length ? suggested : CONCEPT_PACK_CATEGORIES;
+  var category = pick(categoryPool);
+  var topic = pick(TOPICS[category] || []);
+  var twist = pick(CONCEPT_ENGINES);
+  var setting = pick(CONCEPT_SETTINGS);
+  selectedTopics = [topic];
+  selectedTwistId = twist.id;
+  if (document.getElementById('conceptSetting')) {
+    document.getElementById('conceptSetting').value = setting;
+  }
+  if (document.getElementById('topicCategory')) {
+    document.getElementById('topicCategory').value = category;
+  }
+  renderTopicChips(category);
+  buildTwistChips();
+  updateConceptBar();
+  var summary = topic + ' + ' + twist.name + ' + ' + setting;
+  if (!opts.silent) showToast('🎲 ' + summary);
+  return { category: category, topic: topic, twist: twist, setting: setting, summary: summary };
+}
+function appendConceptStackToPrompt(prompt) {
+  if (selectedTopics.length > 0) {
+    prompt += '\n⚡ MANDATORY TOPIC(S): ' + selectedTopics.join(', ') + '\n';
+    selectedTopics.forEach(function(topic) {
+      var cat = getCategoryForTopic(topic);
+      if (cat) prompt += '- Category: ' + cat + '\n';
+      var hook = buildConceptHook(topic);
+      if (hook) prompt += '- Concept hook for "' + topic + '": ' + hook + '\n';
+    });
+    prompt += 'The song MUST center ' + (selectedTopics.length > 1 ? 'these topics' : 'this topic') + ' — not as decoration, as the engine of the story.\n';
+    var hasFaith = selectedTopics.some(function(t) {
+      return (TOPICS['Faith & Spirituality'] && TOPICS['Faith & Spirituality'].indexOf(t) !== -1) ||
+        (TOPICS['Spiritual / Biblical'] && TOPICS['Spiritual / Biblical'].indexOf(t) !== -1);
+    });
+    if (hasFaith) {
+      prompt += 'IMPORTANT: For spiritual/faith content, use "Yah" instead of "God" or "Lord" throughout all lyrics. Never write "God" or "Lord" — always "Yah". This is non-negotiable.\n';
+      prompt += 'BIBLICAL CONTENT: Use biblical weight, spiritual imagery, and authentic faith language. Make it spiritually serious, not generic inspiration.\n';
+    }
+    var hasLove = selectedTopics.some(function(t) {
+      return /love|crush|relationship|devotion|match|together|bliss|forever|heartbreak|dating/i.test(t);
+    });
+    if (hasLove) {
+      prompt += 'RELATIONSHIP TOPICS: Avoid cliché romance. Use specific behavior, power dynamics, and uncomfortable truths. If there is pain, make it earned and specific — not generic heartbreak.\n';
+    }
+  }
+  var twist = getSelectedTwist();
+  if (twist) {
+    prompt += '\n⚡ NARRATIVE TWIST — ' + twist.name + ': ' + twist.description + '\n';
+    prompt += 'Structure the lyrics so this twist is felt in the arc — not just mentioned once in the concept.\n';
+  }
+  var setting = getConceptSetting();
+  if (setting) {
+    prompt += '\n⚡ SETTING: ' + setting + '\n';
+    prompt += 'Ground scenes, details, and sensory images in this setting.\n';
+  }
+  return prompt;
+}
+function updateConceptBar() {
   document.querySelectorAll('#topicChipsContainer .chip').forEach(function(el) {
     var t = el.getAttribute('data-topic');
-    if (selectedTopics.indexOf(t) !== -1) {
-      el.classList.add('active');
-    } else {
-      el.classList.remove('active');
-    }
+    if (selectedTopics.indexOf(t) !== -1) el.classList.add('active');
+    else el.classList.remove('active');
   });
-  // Update selected topics bar
-  var bar = document.getElementById('selectedTopicsBar');
-  if (selectedTopics.length === 0) {
-    bar.innerHTML = '';
-    return;
+  var bar = document.getElementById('selectedConceptBar');
+  if (!bar) return;
+  var html = [];
+  selectedTopics.forEach(function(t) {
+    var cat = getCategoryForTopic(t);
+    var label = cat ? cat + ' → ' + t : t;
+    html.push('<span class="selected-concept-tag">' + label + ' <span class="remove-topic" onclick="removeTopic(\'' + t.replace(/'/g, "\\'") + '\')"><i class="fas fa-xmark"></i></span></span>');
+  });
+  var twist = getSelectedTwist();
+  if (twist) {
+    html.push('<span class="selected-concept-tag twist">' + twist.name + ' <span class="remove-topic" onclick="clearTwist()"><i class="fas fa-xmark"></i></span></span>');
   }
-  bar.innerHTML = selectedTopics.map(function(t) {
-    return '<span class="selected-topic-tag">' + t + ' <span class="remove-topic" onclick="removeTopic(\'' + t.replace(/'/g, "\\'") + '\')"><i class="fas fa-xmark"></i></span></span>';
-  }).join('');
+  var setting = getConceptSetting();
+  if (setting) {
+    html.push('<span class="selected-concept-tag setting">' + setting + '</span>');
+  }
+  bar.innerHTML = html.join('');
+}
+function updateTopicUI() {
+  updateConceptBar();
 }
 function surpriseTopic() {
   var allTopics = [];
@@ -3011,11 +3315,7 @@ function randomizeSettings() {
   // Pick a random template
   var randomTemplate = pick(TEMPLATES);
   selectTemplate(randomTemplate.id);
-  // Pick a coherent narrative topic bundle instead of random topics
-  selectedTopics = [];
-  var narrativeBundle = pick(TOPIC_NARRATIVES);
-  pickRandomTopicsFromNarrative(narrativeBundle);
-  showToast('📖 ' + narrativeBundle.name + ' — ' + selectedTopics.join(', '));
+  pickRandomConceptCombo();
   updateSuggestedTopics();
   // Pick a random artist and generate concept
   pickArtist(null);
@@ -3023,10 +3323,7 @@ function randomizeSettings() {
 }
 /* ===== SURPRISE ME TOPICS ONLY ===== */
 function surpriseTopics() {
-  var pick = function(arr) { return arr[Math.floor(Math.random() * arr.length)]; };
-  var narrativeBundle = pick(TOPIC_NARRATIVES);
-  pickRandomTopicsFromNarrative(narrativeBundle);
-  showToast('📖 ' + narrativeBundle.name);
+  pickRandomConceptCombo();
   updateSuggestedTopics();
   generateConcept();
 }
@@ -3052,9 +3349,12 @@ function resetAll() {
   selectedTemplate = null;
   document.querySelectorAll('.tmpl-card').forEach(function(c) { c.classList.remove('active'); });
   selectedTopics = [];
-  document.getElementById('topicCategory').value = 'all';
-  renderTopicChips('all');
-  document.getElementById('selectedTopicsBar').innerHTML = '';
+  selectedTwistId = '';
+  if (document.getElementById('conceptSetting')) document.getElementById('conceptSetting').value = '';
+  document.getElementById('topicCategory').value = 'packs';
+  renderTopicChips('packs');
+  buildTwistChips();
+  if (document.getElementById('selectedConceptBar')) document.getElementById('selectedConceptBar').innerHTML = '';
   currentArtist = '';
   document.getElementById('artistDisplay').style.display = 'none';
   document.getElementById('outputSections').style.display = 'none';
@@ -3126,19 +3426,7 @@ function buildPrompt() {
     prompt += '\n⚡ REFERENCE ARTIST: ' + currentArtist + '\n';
     prompt += 'Channel ' + currentArtist + '\'s EXACT sonic identity into the style prompt — their signature production, vocal delivery, textures, energy, era, region. Write the lyrics in their style — their vocabulary, flow, emotional register, writing patterns. Make this sound like THEY made it. Do NOT mention their name in the output.\n\n';
   }
-  if (selectedTopics.length > 0) {
-    prompt += '\n⚡ MANDATORY TOPIC(S): ' + selectedTopics.join(', ') + '\n';
-    prompt += 'The song MUST be about ' + (selectedTopics.length > 1 ? 'these topics' : 'this topic') + '. Make ' + (selectedTopics.length > 1 ? 'them' : 'it') + ' the central theme woven throughout every section.\n';
-    var hasFaith = selectedTopics.some(function(t) { return Object.prototype.hasOwnProperty.call(TOPICS, 'Faith & Spirituality') && TOPICS['Faith & Spirituality'].indexOf(t) !== -1; });
-    if (hasFaith) {
-      prompt += 'IMPORTANT: For spiritual/faith content, use "Yah" instead of "God" or "Lord" throughout all lyrics. Never write "God" or "Lord" — always "Yah". This is non-negotiable.\n';
-      prompt += 'BIBLICAL CONTENT: The song should celebrate faith, grace, redemption, spiritual strength, and divine guidance. Use biblical references, spiritual imagery, and messages of hope. Make it spiritually uplifting and authentic to faith traditions.\n';
-    }
-    var hasLove = selectedTopics.some(function(t) { return t.includes('love') || t.includes('crush') || t.includes('relationship') || t.includes('devotion') || t.includes('match') || t.includes('together') || t.includes('bliss') || t.includes('forever'); });
-    if (hasLove) {
-      prompt += 'LOVE & POSITIVE RELATIONSHIPS: Balance any sad or negative aspects with GENUINE JOY and HAPPINESS. If mentioning heartbreak, show resilience and moving forward. For happy love topics, emphasize the beauty of connection, loyalty, growth, and commitment. Make the listener FEEL the positive emotions and hope. Use vivid, specific imagery of real love: a knowing glance, inside jokes, growing old together, how they make you feel, small acts of devotion.\n';
-    }
-  }
+  prompt = appendConceptStackToPrompt(prompt);
   if (concept) {
     prompt += 'Song Concept: ' + concept + '\n';
   } else {
@@ -3213,19 +3501,7 @@ async function generateConcept() {
   prompt += '- Be SPECIFIC — real characters, real places, real moments. "She left her jacket in your car and you keep finding her hair ties" > "love and loss"\n';
   prompt += '- Keep it grounded and emotionally honest\n';
   prompt += '- CLICHÉ BAN: Do NOT use any of these in your concept: neon lights, echoes, shadows, whispers, symphony, intertwined, crimson, electric glow, soar, pulse, chasing dreams, collide, unfold, mystery, tangled sheets, broken heart, fire/flame for passion, storm for anger, rain for tears, walls for emotional protection, chains for love, drowning in love. No "neon-soaked" anything. No abstract poetic fluff. Write like a REAL person describing a REAL moment.\n\n';
-  if (selectedTopics.length > 0) {
-    prompt += '\n⚡ MANDATORY TOPIC(S): ' + selectedTopics.join(', ') + '\n';
-    prompt += 'The concept MUST be built around ' + (selectedTopics.length > 1 ? 'these topics' : 'this topic') + '. Weave ' + (selectedTopics.length > 1 ? 'them' : 'it') + ' into the story naturally — the topic should be the CORE of the concept, not a footnote.\n';
-    var hasFaith = selectedTopics.some(function(t) { return Object.prototype.hasOwnProperty.call(TOPICS, 'Faith & Spirituality') && TOPICS['Faith & Spirituality'].indexOf(t) !== -1; });
-    if (hasFaith) {
-      prompt += 'IMPORTANT: For spiritual/faith topics, use "Yah" instead of "God" or "Lord" throughout. This is non-negotiable.\n';
-      prompt += 'BIBLICAL THEMES: Create concepts inspired by biblical values, stories, and messages. Include themes of grace, redemption, faith, divine love, salvation, spiritual growth, biblical promises, and Yah\'s guidance. The song should feel spiritually uplifting and authentic to faith traditions.\n';
-    }
-    var hasLove = selectedTopics.some(function(t) { return t.includes('love') || t.includes('crush') || t.includes('relationship') || t.includes('devotion') || t.includes('match') || t.includes('together'); });
-    if (hasLove) {
-      prompt += 'LOVE & RELATIONSHIP THEMES: For love-related topics, balance ANY negative aspects with POSITIVE, HAPPY elements. If the topic includes heartbreak, also show resilience and hope. If it\'s about a new relationship, emphasize the joy and excitement. Include themes of genuine connection, loyalty, growth together, commitment, and happiness. Make it feel like a REAL love story that lifts people up.\n';
-    }
-  }
+  prompt = appendConceptStackToPrompt(prompt);
   prompt += '\nSETTINGS:\n';
   if (g1) prompt += '- Genre: ' + g1 + (g2 ? ' / ' + g2 : '') + '\n';
   if (mood) prompt += '- Mood: ' + mood + '\n';
@@ -3238,9 +3514,12 @@ async function generateConcept() {
     prompt += '\n⚡ REFERENCE ARTIST: ' + currentArtist + '\n';
     prompt += 'Think about what ' + currentArtist + ' would actually write a song about. What themes, stories, and emotions are in THEIR catalog? The concept should feel like it belongs on one of their projects. Match their artistic perspective and subject matter.\n';
   }
+  if (getSelectedTwist() || getConceptSetting()) {
+    prompt += '\nIf a narrative twist and/or setting are provided above, the CONCEPT must make both unavoidable — the twist shapes the story structure; the setting supplies concrete sensory detail.\n';
+  }
   prompt += '\nRespond in EXACTLY this format (no extra text):\n';
   prompt += 'CONCEPT: (2-3 sentences — the specific story, situation, characters, emotion. Paint a picture, not a thesis statement.)\n';
-  prompt += 'INSTRUCTIONS: (1 sentence — specific production/arrangement direction that fits this genre\'s sonic identity for Suno AI. Think like a real producer giving notes.)';
+  prompt += 'INSTRUCTIONS: (1 sentence — specific production/arrangement direction that fits this genre\'s sonic identity for Suno v6. Think like a real producer giving notes.)';
   try {
     var res = await fetch('/api/generate', {
       method: 'POST',
