@@ -2840,8 +2840,6 @@ function randomizeFullMashup() {
     currentArtist = '';
     document.getElementById('artistDisplay').style.display = 'none';
   }
-  document.getElementById('songConcept').value = '';
-  document.getElementById('extraInstructions').value = '';
   var artistLabel = currentArtist ? ' · ref: ' + currentArtist : '';
   showToast(
     '🎲 ' +
@@ -2855,8 +2853,10 @@ function randomizeFullMashup() {
       artistLabel +
       '\n' +
       concept.summary +
-      ' — tweak anything, then Generate'
+      ' — dreaming up concept… tweak, then Generate',
+    4500
   );
+  generateConcept();
 }
 /* ===== UI BUILDERS ===== */
 function buildTemplateGrid() {
@@ -5683,11 +5683,11 @@ function showError(msg) {
   el.style.display = 'block';
 }
 /* ===== TOAST ===== */
-function showToast(msg) {
+function showToast(msg, durationMs) {
   var t = document.getElementById('toast');
   t.textContent = msg;
   t.classList.add('show');
-  setTimeout(function() { t.classList.remove('show'); }, 1800);
+  setTimeout(function() { t.classList.remove('show'); }, durationMs || 1800);
 }
 /* ===== TAG REFERENCE ===== */
 function openTagReference() {
