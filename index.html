@@ -1086,9 +1086,9 @@ html.light .chip.suggested {
                 <input type="checkbox" id="mashupToggle" onchange="setMashupMode(this.checked)" style="margin:0; cursor:pointer; width:18px; height:18px">
                 🔥 Genre Mashup Mode
               </label>
-              <p style="margin-top:6px; font-size:12px; color:var(--text-secondary)">Blend two genres for epic hybrid tracks</p>
+              <p style="margin-top:6px; font-size:12px; color:var(--text-secondary)">Blend two genres for epic hybrid tracks. Chaos Mode fills the form — you tweak, then hit Generate.</p>
             </div>
-            <button id="randomizeBtn" style="display:none; padding:8px 16px; background:linear-gradient(135deg, #ff6b6b, #ee5a6f); color:white; border:none; border-radius:6px; cursor:pointer; font-weight:600; font-size:13px; white-space:nowrap; transition:all 0.2s" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" onclick="randomizeFullMashup()">
+            <button id="randomizeBtn" style="display:none; padding:8px 16px; background:linear-gradient(135deg, #ff6b6b, #ee5a6f); color:white; border:none; border-radius:6px; cursor:pointer; font-weight:600; font-size:13px; white-space:nowrap; transition:all 0.2s" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" onclick="randomizeFullMashup()" title="Randomize genres, settings, topic, twist & setting — does not auto-generate">
               🎲 Full Chaos Mode
             </button>
           </div>
@@ -2822,7 +2822,9 @@ function randomizeFullMashup() {
   document.getElementById('bpmSlider').value = randomBPM;
   document.getElementById('bpmVal').textContent = randomBPM;
   document.getElementById('keySelect').value = randomKey;
-  pickRandomConceptCombo({ silent: true });
+  updateRhymeSchemes();
+  updateSuggestedTopics();
+  var concept = pickRandomConceptCombo({ silent: true });
   // Randomly select an artist that fits the mashup
   var allArtists = [];
   var artistKey1 = Object.keys(NICHE_ARTISTS).find(function(k) { return randomGenre1.toLowerCase().includes(k.toLowerCase()) || k.toLowerCase().includes(randomGenre1.toLowerCase()); });
@@ -2834,9 +2836,27 @@ function randomizeFullMashup() {
     currentArtist = randomArtist;
     document.getElementById('artistName').textContent = randomArtist;
     document.getElementById('artistDisplay').style.display = 'block';
+  } else {
+    currentArtist = '';
+    document.getElementById('artistDisplay').style.display = 'none';
   }
-  // Auto-generate the song
-  generateSong();
+  document.getElementById('songConcept').value = '';
+  document.getElementById('extraInstructions').value = '';
+  var artistLabel = currentArtist ? ' · ref: ' + currentArtist : '';
+  showToast(
+    '🎲 ' +
+      randomGenre1 +
+      ' × ' +
+      randomGenre2 +
+      ' · ' +
+      randomMood +
+      ' / ' +
+      randomEnergy +
+      artistLabel +
+      '\n' +
+      concept.summary +
+      ' — tweak anything, then Generate'
+  );
 }
 /* ===== UI BUILDERS ===== */
 function buildTemplateGrid() {
