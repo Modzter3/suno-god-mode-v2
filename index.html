@@ -1476,14 +1476,7 @@ html.light .chip.suggested {
               <div class="kie-row">
                 <div>
                   <label>Model</label>
-                  <select id="kieModel">
-                    <option value="V4">V4</option>
-                    <option value="V4_5">V4_5</option>
-                    <option value="V4_5PLUS">V4_5PLUS</option>
-                    <option value="V4_5ALL">V4_5ALL</option>
-                    <option value="V5" selected>V5</option>
-                    <option value="V5_5">V5_5</option>
-                  </select>
+                  <select id="kieModel" data-kie-model-select></select>
                 </div>
                 <div>
                   <label>Vocal gender (custom mode)</label>
@@ -1544,14 +1537,7 @@ html.light .chip.suggested {
                 </div>
                 <div>
                   <label>Model</label>
-                  <select id="kieExtendModel">
-                    <option value="V4">V4</option>
-                    <option value="V4_5">V4_5</option>
-                    <option value="V4_5PLUS">V4_5PLUS</option>
-                    <option value="V4_5ALL">V4_5ALL</option>
-                    <option value="V5" selected>V5</option>
-                    <option value="V5_5">V5_5</option>
-                  </select>
+                  <select id="kieExtendModel" data-kie-model-select></select>
                 </div>
               </div>
               <div id="kieExtendCustomFields">
@@ -1677,14 +1663,7 @@ html.light .chip.suggested {
               <div class="kie-row">
                 <div>
                   <label>Model</label>
-                  <select id="kieCoverModel">
-                    <option value="V4">V4</option>
-                    <option value="V4_5">V4_5</option>
-                    <option value="V4_5PLUS">V4_5PLUS</option>
-                    <option value="V4_5ALL">V4_5ALL</option>
-                    <option value="V5" selected>V5</option>
-                    <option value="V5_5">V5_5</option>
-                  </select>
+                  <select id="kieCoverModel" data-kie-model-select></select>
                 </div>
                 <div>
                   <label>Negative tags (optional)</label>
@@ -1730,14 +1709,7 @@ html.light .chip.suggested {
                 </div>
                 <div>
                   <label>Model</label>
-                  <select id="kieUpExtModel">
-                    <option value="V4">V4</option>
-                    <option value="V4_5">V4_5</option>
-                    <option value="V4_5PLUS">V4_5PLUS</option>
-                    <option value="V4_5ALL">V4_5ALL</option>
-                    <option value="V5" selected>V5</option>
-                    <option value="V5_5">V5_5</option>
-                  </select>
+                  <select id="kieUpExtModel" data-kie-model-select></select>
                 </div>
               </div>
               <div id="kieUpExtCustomFields">
@@ -1783,7 +1755,7 @@ html.light .chip.suggested {
               </div>
             </div>
             <div id="kiePanelInstr" class="kie-tab-panel" style="display:none" data-kie-panel="instr">
-              <p class="udio-mini">Add instrumental bed to vocals or a capella audio via URL (or Blob upload). Models: V4_5PLUS, V5, V5_5.</p>
+              <p class="udio-mini">Add instrumental bed to vocals or a capella audio via URL (or Blob upload). Models: V6, V6_WILD, V6_MINI.</p>
               <div class="kie-row">
                 <div style="grid-column:1/-1">
                   <label>Audio URL</label>
@@ -1803,11 +1775,7 @@ html.light .chip.suggested {
                 </div>
                 <div>
                   <label>Model</label>
-                  <select id="kieInstrModel">
-                    <option value="V4_5PLUS" selected>V4_5PLUS</option>
-                    <option value="V5">V5</option>
-                    <option value="V5_5">V5_5</option>
-                  </select>
+                  <select id="kieInstrModel" data-kie-model-select></select>
                 </div>
               </div>
               <div class="kie-row">
@@ -1841,11 +1809,7 @@ html.light .chip.suggested {
               <div class="kie-row">
                 <div>
                   <label>Model</label>
-                  <select id="kieVoxModel">
-                    <option value="V4_5PLUS" selected>V4_5PLUS</option>
-                    <option value="V5">V5</option>
-                    <option value="V5_5">V5_5</option>
-                  </select>
+                  <select id="kieVoxModel" data-kie-model-select></select>
                 </div>
                 <div>
                   <label>Vocal gender</label>
@@ -2715,6 +2679,7 @@ async function init() {
   });
   loadUdioSessionKey();
   onUdioBrowserToggle();
+  buildKieModelSelects();
   loadKieSessionFields();
   kieToggleCustom();
   kieToggleExtendCustom();
@@ -3566,11 +3531,20 @@ async function generateSong() {
 function defaultGenerationSettings() {
   return 'Model: v6\nMax Mode: Off\nVariety: 0%\nWeirdness: 50%\nStyle Influence: 75%\nDuration target: 2:30';
 }
-function syncGeneratedToKieFields() {
-  var negEl = document.getElementById('kieNegativeTags');
-  if (negEl && rawNegativeContent && !negEl.value.trim()) {
-    negEl.value = rawNegativeContent.slice(0, 500);
+function syncKieNegativeIfEmpty(id) {
+  var el = document.getElementById(id);
+  if (el && rawNegativeContent && !el.value.trim()) {
+    el.value = rawNegativeContent.slice(0, 500);
   }
+}
+function syncGeneratedToKieFields() {
+  ['kieNegativeTags', 'kieCoverNeg', 'kieUpExtNeg', 'kieInstrNeg', 'kieVoxNeg'].forEach(syncKieNegativeIfEmpty);
+  var gs = parseGenerationSettings(rawSliderContent || '');
+  document.querySelectorAll('[data-kie-model-select]').forEach(function(sel) {
+    if (gs.model && sel.querySelector('option[value="' + gs.model + '"]')) {
+      sel.value = gs.model;
+    }
+  });
 }
 function parseAndDisplay(content) {
   resetUdioPanel();
@@ -4429,9 +4403,83 @@ function kieToggleUpExtCustom() {
   if (cf) cf.style.display = c && c.checked ? 'block' : 'none';
   if (sw) sw.style.display = c && c.checked ? 'none' : 'block';
 }
+const KIE_SUNO_MODELS = [
+  { value: 'V6', label: 'V6 — flagship, precise (default)' },
+  { value: 'V6_WILD', label: 'V6_WILD — experimental / bold' },
+  { value: 'V6_MINI', label: 'V6_MINI — fast drafts' }
+];
+const KIE_SUNO_MODELS_LEGACY = [
+  { value: 'V5_5', label: 'V5_5 (deprecated)' },
+  { value: 'V5', label: 'V5 (deprecated)' },
+  { value: 'V4_5PLUS', label: 'V4_5PLUS (deprecated)' },
+  { value: 'V4_5', label: 'V4_5 (deprecated)' },
+  { value: 'V4_5ALL', label: 'V4_5ALL (deprecated)' },
+  { value: 'V4', label: 'V4 (deprecated)' }
+];
+function buildKieModelSelects() {
+  document.querySelectorAll('[data-kie-model-select]').forEach(function(sel) {
+    var keep = sel.value || '';
+    var html = '<optgroup label="Suno v6">';
+    KIE_SUNO_MODELS.forEach(function(m) {
+      html += '<option value="' + m.value + '">' + m.label + '</option>';
+    });
+    html += '</optgroup><optgroup label="Legacy (deprecated)">';
+    KIE_SUNO_MODELS_LEGACY.forEach(function(m) {
+      html += '<option value="' + m.value + '">' + m.label + '</option>';
+    });
+    html += '</optgroup>';
+    sel.innerHTML = html;
+    sel.value = keep && sel.querySelector('option[value="' + keep + '"]') ? keep : 'V6';
+  });
+}
+function parseGenerationSettings(text) {
+  var gs = parseSliderPercents(text || '');
+  var out = {
+    weirdness: gs.weirdness,
+    styleInf: gs.styleInf,
+    variety: gs.variety,
+    audio: gs.audio,
+    model: 'V6',
+    maxMode: false,
+    durationSec: null
+  };
+  if (!text) return out;
+  var m = text.match(/model:\s*([^\n]+)/i);
+  if (m) {
+    var token = m[1].trim().toLowerCase().replace(/\s+/g, '');
+    if (token.indexOf('wild') !== -1) out.model = 'V6_WILD';
+    else if (token.indexOf('mini') !== -1) out.model = 'V6_MINI';
+    else if (token.indexOf('v6') !== -1) out.model = 'V6';
+    else if (token.indexOf('v5_5') !== -1 || token.indexOf('v5.5') !== -1) out.model = 'V5_5';
+    else if (token.indexOf('v5') !== -1) out.model = 'V5';
+    else if (token.indexOf('v4_5plus') !== -1 || token.indexOf('v4.5+') !== -1) out.model = 'V4_5PLUS';
+    else if (token.indexOf('v4_5all') !== -1) out.model = 'V4_5ALL';
+    else if (token.indexOf('v4_5') !== -1 || token.indexOf('v4.5') !== -1) out.model = 'V4_5';
+    else if (token.indexOf('v4') !== -1) out.model = 'V4';
+  }
+  out.maxMode = /max mode:\s*on/i.test(text);
+  var dur = text.match(/duration target:\s*(\d+)\s*:\s*(\d{1,2})/i);
+  if (dur) {
+    out.durationSec = Math.min(360, Math.max(10, parseInt(dur[1], 10) * 60 + parseInt(dur[2], 10)));
+  }
+  return out;
+}
+function kieSupportsDuration(model) {
+  return model === 'V6' || model === 'V6_WILD' || model === 'V6_MINI' || model === 'V5_5';
+}
+function applyKieGenerationExtras(payload, custom) {
+  var gs = parseGenerationSettings(rawSliderContent || '');
+  if (typeof gs.styleInf === 'number') payload.styleWeight = gs.styleInf;
+  if (typeof gs.weirdness === 'number') payload.weirdnessConstraint = gs.weirdness;
+  if (typeof gs.audio === 'number') payload.audioWeight = gs.audio;
+  if (custom && gs.durationSec && kieSupportsDuration(payload.model)) {
+    payload.duration = gs.durationSec;
+  }
+  return payload;
+}
 function kieLimitsFor(model) {
   if (model === 'V4') return { style: 200, prompt: 3000, title: 80 };
-  return { style: 1000, prompt: 5000, title: 80 };
+  return { style: 1000, prompt: 5000, title: 100 };
 }
 function kieExtendTitleLimit(model) {
   if (model === 'V4' || model === 'V4_5ALL') return 80;
@@ -4442,7 +4490,6 @@ function buildKieGeneratePayload() {
   var lim = kieLimitsFor(model);
   var custom = document.getElementById('kieCustomMode').checked;
   var instrumental = isInstrumentalMode;
-  var sl = parseSliderPercents(rawSliderContent || '');
   var neg = (document.getElementById('kieNegativeTags') && document.getElementById('kieNegativeTags').value.trim()) || rawNegativeContent || '';
   var persona = (document.getElementById('kiePersonaId') && document.getElementById('kiePersonaId').value.trim()) || '';
   var vg = document.getElementById('kieVocalGender').value;
@@ -4469,10 +4516,7 @@ function buildKieGeneratePayload() {
   if (neg) payload.negativeTags = neg.slice(0, 500);
   if (persona) payload.personaId = persona.slice(0, 80);
   if (vg === 'm' || vg === 'f') payload.vocalGender = vg;
-  if (typeof sl.styleInf === 'number') payload.styleWeight = sl.styleInf;
-  if (typeof sl.weirdness === 'number') payload.weirdnessConstraint = sl.weirdness;
-  if (typeof sl.audio === 'number') payload.audioWeight = sl.audio;
-  return payload;
+  return applyKieGenerationExtras(payload, custom);
 }
 function buildKieUploadCoverPayload() {
   var uploadUrl = document.getElementById('kieCoverUploadUrl').value.trim();
@@ -4481,7 +4525,6 @@ function buildKieUploadCoverPayload() {
   var lim = kieLimitsFor(model);
   var custom = document.getElementById('kieCoverCustom').checked;
   var instrumental = document.getElementById('kieCoverInstrumental').checked;
-  var sl = parseSliderPercents(rawSliderContent || '');
   /** @type {Record<string, unknown>} */
   var payload = {
     uploadUrl: uploadUrl,
@@ -4501,14 +4544,14 @@ function buildKieUploadCoverPayload() {
       'A short cover idea';
     payload.prompt = idea.slice(0, 500);
   }
-  var neg = document.getElementById('kieCoverNeg') && document.getElementById('kieCoverNeg').value.trim();
+  var neg =
+    (document.getElementById('kieCoverNeg') && document.getElementById('kieCoverNeg').value.trim()) ||
+    rawNegativeContent ||
+    '';
   if (neg) payload.negativeTags = neg.slice(0, 500);
   var persona = document.getElementById('kieCoverPersona') && document.getElementById('kieCoverPersona').value.trim();
   if (persona) payload.personaId = persona.slice(0, 80);
-  if (typeof sl.styleInf === 'number') payload.styleWeight = sl.styleInf;
-  if (typeof sl.weirdness === 'number') payload.weirdnessConstraint = sl.weirdness;
-  if (typeof sl.audio === 'number') payload.audioWeight = sl.audio;
-  return payload;
+  return applyKieGenerationExtras(payload, custom);
 }
 function buildKieUploadExtendPayload() {
   var uploadUrl = document.getElementById('kieUpExtUrl').value.trim();
@@ -4518,7 +4561,6 @@ function buildKieUploadExtendPayload() {
   var def = document.getElementById('kieUpExtCustom').checked;
   var instrumental = document.getElementById('kieUpExtInstrumental').checked;
   var continueAt = Number(document.getElementById('kieUpExtContinue').value) || 45;
-  var sl = parseSliderPercents(rawSliderContent || '');
   /** @type {Record<string, unknown>} */
   var payload = {
     uploadUrl: uploadUrl,
@@ -4544,14 +4586,14 @@ function buildKieUploadExtendPayload() {
     var idea = (sp && sp.value.trim()) || 'Continue the track';
     payload.prompt = idea.slice(0, 500);
   }
-  var neg = document.getElementById('kieUpExtNeg') && document.getElementById('kieUpExtNeg').value.trim();
+  var neg =
+    (document.getElementById('kieUpExtNeg') && document.getElementById('kieUpExtNeg').value.trim()) ||
+    rawNegativeContent ||
+    '';
   if (neg) payload.negativeTags = neg.slice(0, 500);
   var vg = document.getElementById('kieUpExtGender').value;
   if (vg === 'm' || vg === 'f') payload.vocalGender = vg;
-  if (typeof sl.styleInf === 'number') payload.styleWeight = sl.styleInf;
-  if (typeof sl.weirdness === 'number') payload.weirdnessConstraint = sl.weirdness;
-  if (typeof sl.audio === 'number') payload.audioWeight = sl.audio;
-  return payload;
+  return applyKieGenerationExtras(payload, def);
 }
 async function kieStartMusicJob(op, payloadBuilder, btnId, errPrefix) {
   kieClearResults();
@@ -4619,12 +4661,11 @@ function startKieAddInstrumental() {
     function() {
       var url = document.getElementById('kieInstrUrl').value.trim();
       if (!url) throw new Error('Audio URL required');
-      var neg = document.getElementById('kieInstrNeg').value.trim();
+      var neg = document.getElementById('kieInstrNeg').value.trim() || rawNegativeContent || '';
       if (!neg) throw new Error('Negative tags required (Kie API)');
       var tags = document.getElementById('kieInstrTags').value.trim() || rawStyleContent || 'music';
       var title =
         document.getElementById('kieInstrTitle').value.trim() || rawTitleContent || 'Instrumental bed';
-      var sl = parseSliderPercents(rawSliderContent || '');
       /** @type {Record<string, unknown>} */
       var payload = {
         uploadUrl: url,
@@ -4633,10 +4674,7 @@ function startKieAddInstrumental() {
         negativeTags: neg.slice(0, 500),
         model: document.getElementById('kieInstrModel').value
       };
-      if (typeof sl.styleInf === 'number') payload.styleWeight = sl.styleInf;
-      if (typeof sl.weirdness === 'number') payload.weirdnessConstraint = sl.weirdness;
-      if (typeof sl.audio === 'number') payload.audioWeight = sl.audio;
-      return payload;
+      return applyKieGenerationExtras(payload, false);
     },
     'kieInstrBtn',
     'Instrumental'
@@ -4648,7 +4686,7 @@ function startKieAddVocals() {
     function() {
       var url = document.getElementById('kieVoxUrl').value.trim();
       if (!url) throw new Error('Audio URL required');
-      var neg = document.getElementById('kieVoxNeg').value.trim();
+      var neg = document.getElementById('kieVoxNeg').value.trim() || rawNegativeContent || '';
       if (!neg) throw new Error('Negative tags required');
       var prompt =
         (document.getElementById('kieVoxPrompt') && document.getElementById('kieVoxPrompt').value.trim()) ||
@@ -4662,7 +4700,6 @@ function startKieAddVocals() {
         (document.getElementById('kieVoxStyle') && document.getElementById('kieVoxStyle').value.trim()) ||
         rawStyleContent ||
         'Pop';
-      var sl = parseSliderPercents(rawSliderContent || '');
       /** @type {Record<string, unknown>} */
       var payload = {
         uploadUrl: url,
@@ -4674,10 +4711,7 @@ function startKieAddVocals() {
       };
       var vg = document.getElementById('kieVoxGender').value;
       if (vg === 'm' || vg === 'f') payload.vocalGender = vg;
-      if (typeof sl.styleInf === 'number') payload.styleWeight = sl.styleInf;
-      if (typeof sl.weirdness === 'number') payload.weirdnessConstraint = sl.weirdness;
-      if (typeof sl.audio === 'number') payload.audioWeight = sl.audio;
-      return payload;
+      return applyKieGenerationExtras(payload, false);
     },
     'kieVoxBtn',
     'Vocals'
@@ -5230,6 +5264,7 @@ async function startKieExtend() {
       kieExtendTitleLimit(model)
     );
   }
+  payload = applyKieGenerationExtras(payload, custom);
   if (btn) btn.disabled = true;
   kieSetStatus('Extending…');
   try {
