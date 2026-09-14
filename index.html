@@ -1306,7 +1306,7 @@ html.light .chip.suggested {
       <!-- Artist Display -->
       <div class="artist-display" id="artistDisplay" style="display:none">
         <div class="artist-info">
-          <span class="artist-label">CHANNELING</span>
+          <span class="artist-label">SONIC REF (not in style)</span>
           <span class="artist-name" id="artistName"></span>
         </div>
         <button class="artist-reroll" onclick="rerollArtist()" title="Pick a different artist">
@@ -2340,6 +2340,7 @@ async function loadArtistData() {
     Object.assign(GENRE_ARTISTS, FALLBACK_GENRE_ARTISTS);
     Object.assign(NICHE_ARTISTS, FALLBACK_NICHE_ARTISTS);
   }
+  invalidateArtistNameCache();
 }
 
 /* ===== GENRE INTELLIGENCE MAP FOR MASHUP MODE ===== */
@@ -2469,7 +2470,7 @@ primary genre → sub-genre/influence → BPM → key/mode → specific instrume
 STYLE PROMPT RULES:
 - Budget ~1,000 characters. Concrete descriptors only.
 - Maintain ONE coherent genre spine. Never introduce contradictory tags.
-- Describe production era and reference texture WITHOUT artist names.
+- NEVER include artist, band, producer, rapper, singer, DJ, or celebrity names in the style prompt — Suno rejects them. No "in the style of", "sounds like", "X-inspired", or "type beat" references. Describe production era and sonic texture using traits only.
 - Include mix-space instructions when relevant: dry up-front vocals, wide stereo field, glue compression, punchy transient drums, saturated tape bus.
 - Polished targets: end with "Clean master, 44.1kHz fidelity."
 - Only request lo-fi tape warmth, room mics, plate reverb, or similar artifacts when grit is explicitly desired.
@@ -2505,7 +2506,8 @@ NEGATIVE PROMPT RULES:
 - Example: "screaming vocals, distorted guitars, trap hi-hats, autotune artifacts, muddy low-end, crowd noise, vinyl crackle"
 
 REFERENCE ARTIST (if provided):
-- Do NOT imitate a living artist's distinctive style or name them in output
+- Use ONLY for internal sonic translation — NEVER echo the name in ===STYLE PROMPT=== or ===NEGATIVE PROMPT===
+- Do NOT imitate a living artist's distinctive style
 - Translate into non-identifying traits: era, region, instrumentation, arrangement, vocal register, delivery, production texture, mix approach
 
 DUET (if requested):
@@ -2516,7 +2518,7 @@ OUTPUT FORMAT — use EXACTLY these delimiters on their own lines:
 ===TITLE===
 (creative title)
 ===STYLE PROMPT===
-(concrete style prompt, ≤1000 chars, ordered as specified)
+(concrete style prompt, ≤1000 chars, ordered as specified — ZERO artist/band/producer names)
 ===LYRICS===
 (full lyrics with section + dynamic tags, ≤5000 chars)
 ===NEGATIVE PROMPT===
@@ -2834,10 +2836,12 @@ function randomizeFullMashup() {
   if (allArtists.length > 0) {
     var randomArtist = allArtists[Math.floor(Math.random() * allArtists.length)];
     currentArtist = randomArtist;
+    invalidateArtistNameCache();
     document.getElementById('artistName').textContent = randomArtist;
     document.getElementById('artistDisplay').style.display = 'block';
   } else {
     currentArtist = '';
+    invalidateArtistNameCache();
     document.getElementById('artistDisplay').style.display = 'none';
   }
   var artistLabel = currentArtist ? ' · ref: ' + currentArtist : '';
@@ -3149,6 +3153,67 @@ function surpriseTopic() {
   showToast('🎯 ' + pick);
   generateConcept();
 }
+/* ===== STYLE PROMPT SANITIZER (no artist names — Suno rejects them) ===== */
+var _artistNameCache = null;
+function invalidateArtistNameCache() {
+  _artistNameCache = null;
+}
+function escapeRegExp(str) {
+  return String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+function getAllKnownArtistNames() {
+  if (_artistNameCache) return _artistNameCache;
+  var seen = {};
+  function add(name) {
+    if (!name || name === "Artist's choice") return;
+    var key = String(name).toLowerCase();
+    if (!seen[key]) seen[key] = String(name);
+  }
+  function addFrom(obj) {
+    Object.values(obj).forEach(function(arr) {
+      if (Array.isArray(arr)) arr.forEach(add);
+    });
+  }
+  addFrom(GENRE_ARTISTS);
+  addFrom(NICHE_ARTISTS);
+  addFrom(FALLBACK_GENRE_ARTISTS);
+  addFrom(FALLBACK_NICHE_ARTISTS);
+  if (currentArtist) add(currentArtist);
+  _artistNameCache = Object.values(seen).sort(function(a, b) {
+    return b.length - a.length;
+  });
+  return _artistNameCache;
+}
+function sanitizeStylePrompt(style) {
+  if (!style) return style;
+  var out = style;
+  var phrasePatterns = [
+    /\bin the style of\s+[^,.\n;]+/gi,
+    /\bsounds like\s+[^,.\n;]+/gi,
+    /\bsimilar to\s+[^,.\n;]+/gi,
+    /\breminiscent of\s+[^,.\n;]+/gi,
+    /\binspired by\s+[^,.\n;]+/gi,
+    /\bchanneling\s+[^,.\n;]+/gi,
+    /\bvibes of\s+[^,.\n;]+/gi,
+    /\btype beat(?:\s+for)?\s+[^,.\n;]+/gi,
+    /\b(?:à la|a la)\s+[^,.\n;]+/gi,
+    /\b\d{4}s?\s+[A-Z][^,.\n;]+(?:vibes?|sound|style)/gi
+  ];
+  phrasePatterns.forEach(function(re) {
+    out = out.replace(re, '');
+  });
+  getAllKnownArtistNames().forEach(function(name) {
+    out = out.replace(new RegExp('\\b' + escapeRegExp(name) + '\\b', 'gi'), '');
+  });
+  out = out
+    .replace(/\(\s*\)/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/,\s*,+/g, ',')
+    .replace(/^\s*[,;–—-]+\s*/g, '')
+    .replace(/\s*[,;–—-]+\s*$/g, '')
+    .replace(/\s+([,.;])/g, '$1');
+  return out.trim();
+}
 /* ===== ARTIST PICKER ===== */
 function pickArtist(templateId) {
   var g1 = document.getElementById('genre1').value;
@@ -3171,6 +3236,7 @@ function pickArtist(templateId) {
     candidates = ['Artist\'s choice'];
   }
   currentArtist = pick(candidates);
+  invalidateArtistNameCache();
   updateArtistDisplay();
 }
 function rerollArtist() {
@@ -3385,8 +3451,8 @@ function buildPrompt() {
     }
   }
   if (currentArtist && currentArtist !== 'Artist\'s choice') {
-    prompt += '\n⚡ REFERENCE ARTIST (translate, do not imitate): ' + currentArtist + '\n';
-    prompt += 'Do NOT name this artist or imitate their distinctive style. Translate into non-identifying musical traits: era, region, instrumentation, arrangement, vocal register, delivery, production texture, and mix approach. Apply those traits to the style prompt and lyrical voice.\n\n';
+    prompt += '\n⚡ REFERENCE ARTIST (internal translation only): ' + currentArtist + '\n';
+    prompt += 'Suno rejects artist names in style prompts. Do NOT name this artist, band, or producer anywhere in ===STYLE PROMPT=== or ===NEGATIVE PROMPT===. Do not write "in the style of", "sounds like", "X-inspired", or "type beat". Translate into non-identifying musical traits only: era, region, instrumentation, arrangement, vocal register, delivery, production texture, and mix approach. Apply those traits to the style prompt and lyrical voice.\n\n';
   }
   prompt = appendConceptStackToPrompt(prompt);
   if (concept) {
@@ -3401,6 +3467,7 @@ function buildPrompt() {
     prompt += 'Style prompt must be concrete and production-oriented. Negative prompt must exclude unwanted vocals and vocal-like artifacts.\n';
   } else {
     prompt += '\nDeliver the full five-part Suno Precision Engineer package. Technical, decisive, production-oriented tone.\n';
+    prompt += 'STYLE PROMPT must contain zero artist/band/producer names — Suno flags them. Traits and production language only.\n';
     prompt += 'Follow CLICHÉ AVOIDANCE strictly. Keep style prompt ≤1000 chars and lyrics ≤5000 chars.\n';
     prompt += 'Output EXACTLY: ===TITLE===, ===STYLE PROMPT===, ===LYRICS===, ===NEGATIVE PROMPT===, ===GENERATION SETTINGS===';
   }
@@ -3469,7 +3536,7 @@ async function generateConcept() {
   }
   prompt += '\nRespond in EXACTLY this format (no extra text):\n';
   prompt += 'CONCEPT: (2-3 sentences — the specific story, situation, characters, emotion. Paint a picture, not a thesis statement.)\n';
-  prompt += 'INSTRUCTIONS: (1 sentence — specific production/arrangement direction that fits this genre\'s sonic identity for Suno v6. Think like a real producer giving notes.)';
+  prompt += 'INSTRUCTIONS: (1 sentence — specific production/arrangement direction that fits this genre\'s sonic identity for Suno v6. Think like a real producer giving notes. Do NOT name any artist, band, or producer.)';
   try {
     var res = await fetch('/api/generate', {
       method: 'POST',
@@ -3578,7 +3645,7 @@ function parseAndDisplay(content) {
   var negativeMatch = content.match(/===NEGATIVE PROMPT===\s*\n([\s\S]*?)(?=\n===(GENERATION SETTINGS|SLIDER SETTINGS)===)/);
   var settingsMatch = content.match(/===(?:GENERATION SETTINGS|SLIDER SETTINGS)===\s*\n([\s\S]*?)$/);
   rawTitleContent = titleMatch ? titleMatch[1].trim() : '';
-  rawStyleContent = styleMatch ? styleMatch[1].trim() : '';
+  rawStyleContent = sanitizeStylePrompt(styleMatch ? styleMatch[1].trim() : '');
   rawLyricsContent = lyricsMatch ? lyricsMatch[1].trim() : '';
   rawNegativeContent = negativeMatch ? negativeMatch[1].trim() : '';
   rawSliderContent = settingsMatch ? settingsMatch[1].trim() : '';
@@ -3589,7 +3656,7 @@ function parseAndDisplay(content) {
     var altNegative = content.match(/---NEGATIVE PROMPT---\s*\n([\s\S]*?)(?=\n---(SLIDER|GENERATION)---)/);
     var altSlider = content.match(/---(?:GENERATION SETTINGS|SLIDER SETTINGS)---\s*\n([\s\S]*?)$/);
     rawTitleContent = altTitle ? altTitle[1].trim() : '';
-    rawStyleContent = altStyle ? altStyle[1].trim() : '';
+    rawStyleContent = sanitizeStylePrompt(altStyle ? altStyle[1].trim() : '');
     rawLyricsContent = altLyrics ? altLyrics[1].trim() : '';
     rawNegativeContent = altNegative ? altNegative[1].trim() : '';
     rawSliderContent = altSlider ? altSlider[1].trim() : '';
@@ -5521,7 +5588,7 @@ function applyHistoryRecord(item) {
   var sliders = item.slider_settings != null ? item.slider_settings : (item.sliderSettings || '');
   var negative = item.negative_prompt != null ? item.negative_prompt : (item.negativePrompt || '');
   rawTitleContent = title;
-  rawStyleContent = style;
+  rawStyleContent = sanitizeStylePrompt(style);
   rawLyricsContent = lyrics;
   rawNegativeContent = negative;
   rawSliderContent = sliders || defaultGenerationSettings();
