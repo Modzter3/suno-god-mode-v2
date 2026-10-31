@@ -1557,7 +1557,7 @@ html.light .chip.suggested {
               <div class="kie-row">
                 <div style="grid-column:1/-1">
                   <label>Choose file → uploads to Vercel Blob → fills URL above</label>
-                  <input type="file" accept="audio/*,.mp3,.wav,.m4a,.flac,.webm" data-kie-blob-target="udioCoverUploadUrl" onchange="kieBlobUploadToField(this)" />
+                  <input type="file" accept="audio/*,.mp3,.wav,.m4a,.flac,.webm" data-kie-blob-target="udioCoverUploadUrl" data-blob-status="udioCoverStatus" onchange="kieBlobUploadToField(this)" />
                 </div>
               </div>
               <label class="udio-browser-row" style="cursor:default">
@@ -5827,6 +5827,12 @@ async function kieLoadBlobClientModule() {
 }
 async function kieBlobUploadToField(input) {
   var targetId = input && input.getAttribute('data-kie-blob-target');
+  /** Udio tabs route progress into their own status line instead of the Kie banner. */
+  var statusId = input && input.getAttribute('data-blob-status');
+  function blobStatus(msg) {
+    if (statusId) udioSetStatus(statusId, msg);
+    else kieSetStatus(msg);
+  }
   var file = input && input.files && input.files[0];
   if (!targetId || !file) return;
   var field = document.getElementById(targetId);
@@ -5834,7 +5840,7 @@ async function kieBlobUploadToField(input) {
     showToast('Missing URL field');
     return;
   }
-  kieSetStatus('Uploading to Vercel Blob…');
+  blobStatus('Uploading to Vercel Blob…');
   showToast('Uploading…');
   try {
     var url;
@@ -5898,7 +5904,7 @@ async function kieBlobUploadToField(input) {
     try {
       field.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     } catch (eS) {}
-    kieSetStatus('Blob URL filled in the field above (also copied to clipboard if allowed). Run Create cover when ready.');
+    blobStatus('Blob URL filled in the field above (also copied to clipboard if allowed). Run Create cover when ready.');
     showToast('Blob URL ready.');
   } catch (e) {
     var msg = e && e.message ? e.message : String(e);
@@ -5908,8 +5914,8 @@ async function kieBlobUploadToField(input) {
       hint =
         ' No response from /api/blob-put-simple — use `npm run dev:vercel` or open the deployed site (not plain static `serve`).';
     }
-    kieSetStatus('Blob upload failed: ' + msg + ' — ' + hint);
-    showToast('Blob upload failed — read green banner above tabs.');
+    blobStatus('Blob upload failed: ' + msg + ' — ' + hint);
+    showToast(statusId ? 'Blob upload failed — see the status line on this tab.' : 'Blob upload failed — read green banner above tabs.');
   }
   input.value = '';
 }
