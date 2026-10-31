@@ -4751,8 +4751,12 @@ async function runUdioTaskPoll(cfg, taskId, attempt) {
         scheduleUdioTaskPoll(cfg, taskId, attempt + 1);
         return;
       }
-      if (feed && feed.code && feed.code !== 200) {
-        udioSetStatus(cfg.statusId, feed.message || feed.msg || 'Feed error');
+      /** udioapi.pro also uses {error:true,statusCode,message} for auth/route errors. */
+      if (feed && (feed.error || (feed.code && feed.code !== 200))) {
+        udioSetStatus(
+          cfg.statusId,
+          feed.message || feed.statusMessage || feed.msg || 'Feed error (' + (feed.statusCode || feed.code) + ')'
+        );
         udioEnableBtn(cfg.btnId);
         return;
       }
@@ -4762,7 +4766,14 @@ async function runUdioTaskPoll(cfg, taskId, attempt) {
       requestBody = fd.request_body || null;
     } else {
       var st = await udioApiCall(cfg.kind + 'Status', { task_id: taskId });
-      if (st && ((typeof st.code === 'number' && st.code !== 200) || (st.msg && !st.data))) {
+      var stCode = st && typeof st.code === 'number' ? st.code : 0;
+      /** A just-created task can briefly 404 — keep polling instead of failing. */
+      if (stCode === 404) {
+        udioSetStatus(cfg.statusId, 'Waiting for task… (' + (attempt + 1) + ')');
+        scheduleUdioTaskPoll(cfg, taskId, attempt + 1);
+        return;
+      }
+      if (st && ((stCode && stCode !== 200) || (st.msg && !st.data))) {
         throw new Error(st.message || st.msg || 'Status error');
       }
       var sd = (st && st.data) || {};
