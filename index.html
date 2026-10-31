@@ -1425,12 +1425,9 @@ html.light .chip.suggested {
               <div>
                 <label>Chirp model</label>
                 <select id="udioModel">
-                  <option value="chirp-v3-5">chirp-v3-5 (5 credits)</option>
-                  <option value="chirp-v4-0">chirp-v4-0 (8 credits)</option>
-                  <option value="chirp-v4-5" selected>chirp-v4-5 (10 credits)</option>
-                  <option value="chirp-v4-5-plus">chirp-v4-5-plus (10 credits)</option>
-                  <option value="chirp-v5">chirp-v5 (12 credits)</option>
-                  <option value="chirp-v5-5">chirp-v5-5 (12 credits)</option>
+                  <option value="chirp-v6" selected>chirp-v6 (12 credits)</option>
+                  <option value="chirp-v6-mini">chirp-v6-mini (10 credits)</option>
+                  <option value="chirp-v6-wild">chirp-v6-wild (12 credits)</option>
                 </select>
               </div>
               <div>
@@ -1560,7 +1557,7 @@ html.light .chip.suggested {
                   </div>
                   <div>
                     <label>Title</label>
-                    <input type="text" id="kieExtendTitle" placeholder="Track title" maxlength="100" />
+                    <input type="text" id="kieExtendTitle" placeholder="Track title" maxlength="80" />
                   </div>
                 </div>
               </div>
@@ -1726,7 +1723,7 @@ html.light .chip.suggested {
                   </div>
                   <div>
                     <label>Title</label>
-                    <input type="text" id="kieUpExtTitle" maxlength="100" />
+                    <input type="text" id="kieUpExtTitle" maxlength="80" />
                   </div>
                 </div>
               </div>
@@ -4565,12 +4562,13 @@ function applyKieGenerationExtras(payload, custom) {
   return payload;
 }
 function kieLimitsFor(model) {
+  // Kie docs: current models (V6 family) allow style 1000, lyrics/prompt 5000, title 80.
+  // V4 is still accepted but deprecated and capped lower.
   if (model === 'V4') return { style: 200, prompt: 3000, title: 80 };
-  return { style: 1000, prompt: 5000, title: 100 };
+  return { style: 1000, prompt: 5000, title: 80 };
 }
 function kieExtendTitleLimit(model) {
-  if (model === 'V4' || model === 'V4_5ALL') return 80;
-  return 100;
+  return 80;
 }
 function buildKieGeneratePayload() {
   var model = document.getElementById('kieModel').value;

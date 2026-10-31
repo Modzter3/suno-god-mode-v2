@@ -13,7 +13,10 @@ function json(body, status = 200) {
   });
 }
 
-/** Style / lyrics caps from https://udioapi.pro/docs/v2-generate */
+/** Style / lyrics caps from https://udioapi.pro/docs/v2-generate
+ *  Current models: chirp-v6 / chirp-v6-mini / chirp-v6-wild (style 1000, prompt 5000, title 80).
+ *  Legacy chirp-v3-5 / chirp-v4-0 keep their lower caps.
+ */
 const MODEL_LIMITS = {
   'chirp-v3-5': { style: 200, prompt: 3000 },
   'chirp-v4-0': { style: 200, prompt: 3000 },
@@ -49,7 +52,7 @@ export default async function handler(req) {
   try {
     const body = await req.json();
     const model =
-      typeof body.model === 'string' && body.model.trim() ? body.model.trim() : 'chirp-v4-5';
+      typeof body.model === 'string' && body.model.trim() ? body.model.trim() : 'chirp-v6';
     const lim = limitsFor(model);
 
     let title = body.title != null ? String(body.title) : '';
