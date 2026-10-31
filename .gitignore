@@ -6,3 +6,4 @@ node_modules/
 _extracted.html
 _extract_html.js
 apply_openrouter_patch.js
+*.log

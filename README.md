@@ -40,6 +40,10 @@ Static web app plus Vercel Edge functions that call [OpenRouter](https://openrou
 
 ## Local development
 
+Two options:
+
+**A. With a Vercel account** (env vars pulled for you, Edge + Node functions both work):
+
 ```bash
 npm i -g vercel
 vercel link
@@ -47,6 +51,18 @@ vercel env pull .env.local
 # Add OPENROUTER_API_KEY to .env.local or use `vercel env add`
 vercel dev
 ```
+
+**B. No Vercel account needed** — `local-server.mjs` serves the page *and* runs the
+functions from `api/` (Edge functions as Web `Request`/`Response`, the rest as classic
+Node `(req, res)`), reading `.env.local`:
+
+```bash
+npm run dev:local          # = node local-server.mjs
+curl http://localhost:3000/api/blob-health   # confirms BLOB_READ_WRITE_TOKEN is visible
+```
+
+Note `npm run dev` (`serve`) is **static only** — `/api/*` calls 404 there, so uploads and
+generation will fail; use A or B.
 
 Open the URL shown (usually `http://localhost:3000`).
 
