@@ -7,6 +7,9 @@
     "api/udio-feed.js": {
       "maxDuration": 30
     },
+    "api/udio-api.js": {
+      "maxDuration": 30
+    },
     "api/kie-api.js": {
       "maxDuration": 30
     },

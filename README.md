@@ -11,7 +11,7 @@ Static web app plus Vercel Edge functions that call [OpenRouter](https://openrou
    - `OPENROUTER_MODEL` — optional; if unset, the app defaults to `openai/gpt-4o-mini`. The API also sends **fallback models** so a single unavailable slug does not fail the whole request (see [model fallbacks](https://openrouter.ai/docs/guides/routing/model-fallbacks)).
    - `OPENROUTER_SITE_URL` — optional; defaults to `https://$VERCEL_URL` for the `HTTP-Referer` header OpenRouter expects.
    - **`BLOB_READ_WRITE_TOKEN`** — optional; create a [Vercel Blob](https://vercel.com/docs/storage/vercel-blob) store on the project to enable **Upload audio** on Kie tabs (public URLs for Kie `uploadUrl`).
-4. Deploy. The app uses `/api/models` (live OpenRouter model catalog for the picker), `/api/generate` (concept), `/api/generate-stream` (song, streaming), `/api/history` (optional saved generations), optionally `/api/udio-generate` + `/api/udio-feed` for [Udio](https://udioapi.pro/docs) (Chirp) audio rendering, `/api/kie-api` + `/api/kie-callback` for the [Kie.ai Suno API](https://docs.kie.ai/suno-api/quickstart) (generate, lyrics, extend, music video, stems, WAV), and optionally **`/api/blob-upload`** (Vercel Blob client uploads for Kie audio URLs).
+4. Deploy. The app uses `/api/models` (live OpenRouter model catalog for the picker), `/api/generate` (concept), `/api/generate-stream` (song, streaming), `/api/history` (optional saved generations), optionally `/api/udio-generate` + `/api/udio-feed` for [Udio](https://udioapi.pro/docs) (Chirp) audio rendering and `/api/udio-api` for Udio extend, upload-cover, cover art, WAV, and lyric timing, `/api/kie-api` + `/api/kie-callback` for the [Kie.ai Suno API](https://docs.kie.ai/suno-api/quickstart) (generate, lyrics, extend, music video, stems, WAV), and optionally **`/api/blob-upload`** (Vercel Blob client uploads for Kie audio URLs).
 
 ### Kie.ai (optional)
 
@@ -26,6 +26,9 @@ Static web app plus Vercel Edge functions that call [OpenRouter](https://openrou
 - After a successful **Generate**, use **Send to Udio** to post title, style, and lyrics to [udioapi.pro](https://udioapi.pro/docs) (custom mode).
 - Set **`UDIO_API_KEY`** in Vercel (Bearer token from your Udio account). Without it, the button will error when pressed.
 - Credits and moderation are enforced by Udio; the UI polls until tracks complete or fail.
+- **Udio tabs** (mirrors the useful parts of the Kie panel): **Generate**, **Extend** (by `origin_task_id` + audio index), **Upload & cover** (your audio URL or Vercel Blob), **Cover art** (2 images, 1 credit, once per task, links kept 14 days), **WAV**, and **Lyric timing** (word-level alignment, 2 credits, exports `.lrc`). All tabs honour browser mode.
+- Udio has **no** equivalent for music video, stems, MIDI, persona, + instrumental, + vocals, upload-extend, or lyrics-only — those stay Kie-only. Udio can only extend a **finished Udio task**, not an arbitrary upload (upload-cover is the closest analog).
+- Every Udio result's **⋮** menu fills the Udio tabs with that track's task ID, audio ID, and audio index.
 - **Gateway timeout / Hobby 10s:** Use **“Call Udio from browser”** in the UI, paste your Udio Bearer token (stored in `sessionStorage` only). That skips Vercel entirely for the generate + feed calls. Server **`UDIO_API_KEY`** is only for the Vercel proxy path (works best on **Pro** or when Udio responds fast). The proxy routes use **Edge** runtime with a 30s cap; slow Udio responses can still 504 on free tiers — browser mode avoids that.
 
 ### Past results (database)

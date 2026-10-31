@@ -462,6 +462,45 @@ textarea { resize: vertical; min-height: 80px; }
   word-break: break-word;
 }
 .udio-players { margin-top: 14px; display: flex; flex-direction: column; gap: 14px; }
+/* Udio extras: cover art grid + lyric timing dump */
+.udio-art-grid {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+.udio-art-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--bg-elevated);
+}
+.udio-art-card img { display: block; width: 100%; height: auto; }
+.udio-art-card a {
+  display: block;
+  padding: 8px;
+  font-size: 0.75rem;
+  text-align: center;
+  color: var(--accent);
+  text-decoration: none;
+}
+.udio-art-card a:hover { text-decoration: underline; }
+.udio-lrc {
+  margin: 10px 0 0;
+  padding: 12px;
+  max-height: 260px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-elevated);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.udio-lrc-actions { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; }
+
 /* Custom audio cards (replaces plain OS / QuickTime-style native controls) */
 .audio-player-card {
   position: relative;
@@ -1421,6 +1460,15 @@ html.light .chip.suggested {
               <input type="password" id="udioBrowserKey" placeholder="Bearer token from udioapi.pro" autocomplete="off" />
               <p class="udio-mini">Not sent to Vercel. Only your browser calls https://udioapi.pro. If you see a CORS error, use server mode with a paid Vercel plan instead.</p>
             </div>
+            <div class="kie-tabs" role="tablist">
+              <button type="button" class="kie-tab active" data-udio-tab="generate" onclick="udioShowTab('generate')">Generate</button>
+              <button type="button" class="kie-tab" data-udio-tab="extend" onclick="udioShowTab('extend')">Extend</button>
+              <button type="button" class="kie-tab" data-udio-tab="cover" onclick="udioShowTab('cover')">Upload &amp; cover</button>
+              <button type="button" class="kie-tab" data-udio-tab="art" onclick="udioShowTab('art')">Cover art</button>
+              <button type="button" class="kie-tab" data-udio-tab="wav" onclick="udioShowTab('wav')">WAV</button>
+              <button type="button" class="kie-tab" data-udio-tab="align" onclick="udioShowTab('align')">Lyric timing</button>
+            </div>
+            <div id="udioPanelGenerate" class="kie-tab-panel" data-udio-panel="generate">
             <div class="udio-controls row-2">
               <div>
                 <label>Chirp model</label>
@@ -1444,6 +1492,176 @@ html.light .chip.suggested {
             </button>
             <div id="udioStatus" class="udio-status" style="display:none"></div>
             <div id="udioPlayers" class="udio-players"></div>
+            </div><!-- /udioPanelGenerate -->
+            <div id="udioPanelExtend" class="kie-tab-panel" style="display:none" data-udio-panel="extend">
+              <p class="udio-mini">Udio extends a <strong>finished Udio task</strong> by task ID (it cannot extend a bare audio URL). Inherit mode keeps the original prompt/style; custom mode replaces them.</p>
+              <div class="kie-row">
+                <div>
+                  <label>Original task ID (workId)</label>
+                  <input type="text" id="udioExtOriginTaskId" placeholder="gen2…bksv" autocomplete="off" />
+                </div>
+                <div>
+                  <label>Which audio</label>
+                  <select id="udioExtAudioIndex">
+                    <option value="0" selected>0 — first variation</option>
+                    <option value="1">1 — second variation</option>
+                  </select>
+                </div>
+              </div>
+              <label class="udio-browser-row" style="cursor:default">
+                <input type="checkbox" id="udioExtCustomMode" onchange="udioToggleExtendCustom()" />
+                <span>Custom params (new lyrics, style, title, start time)</span>
+              </label>
+              <div id="udioExtCustomWrap" style="display:none">
+                <div class="kie-row">
+                  <div>
+                    <label>Start time (seconds, optional)</label>
+                    <input type="number" id="udioExtStart" value="60" min="1" step="1" />
+                  </div>
+                  <div>
+                    <label>Tags (optional, max 200)</label>
+                    <input type="text" id="udioExtTags" maxlength="200" placeholder="epic, war" />
+                  </div>
+                </div>
+                <div class="kie-row">
+                  <div style="grid-column:1/-1">
+                    <label>Extension lyrics / prompt (required in custom mode)</label>
+                    <textarea id="udioExtPrompt" rows="3" placeholder="Lyrics for the new section…"></textarea>
+                  </div>
+                </div>
+                <div class="kie-row">
+                  <div>
+                    <label>Style</label>
+                    <input type="text" id="udioExtStyle" maxlength="1000" />
+                  </div>
+                  <div>
+                    <label>Title</label>
+                    <input type="text" id="udioExtTitle" maxlength="80" />
+                  </div>
+                </div>
+              </div>
+              <div class="kie-actions">
+                <button type="button" class="kie-btn" id="udioExtendBtn" onclick="startUdioExtend()"><i class="fas fa-arrow-right"></i> Extend track</button>
+              </div>
+              <div id="udioExtendStatus" class="udio-status" style="display:none"></div>
+              <div id="udioExtendPlayers" class="udio-players"></div>
+            </div>
+            <div id="udioPanelCover" class="kie-tab-panel" style="display:none" data-udio-panel="cover">
+              <p class="udio-mini">Uploads your own audio (<strong>max 8 minutes</strong>) and regenerates it as a cover, keeping the melody. It needs a <strong>public direct audio link</strong> — the file picker below puts the file on Vercel Blob when <code>BLOB_READ_WRITE_TOKEN</code> is set.</p>
+              <div class="kie-row">
+                <div style="grid-column:1/-1">
+                  <label>Audio file URL</label>
+                  <input type="text" id="udioCoverUploadUrl" inputmode="url" autocomplete="off" placeholder="https://…/your-audio.mp3" />
+                </div>
+              </div>
+              <div class="kie-row">
+                <div style="grid-column:1/-1">
+                  <label>Choose file → uploads to Vercel Blob → fills URL above</label>
+                  <input type="file" accept="audio/*,.mp3,.wav,.m4a,.flac,.webm" data-kie-blob-target="udioCoverUploadUrl" onchange="kieBlobUploadToField(this)" />
+                </div>
+              </div>
+              <label class="udio-browser-row" style="cursor:default">
+                <input type="checkbox" id="udioCoverCustomMode" checked onchange="udioToggleCoverCustom()" />
+                <span>Custom mode (your own lyrics, style, title)</span>
+              </label>
+              <div id="udioCoverNonCustomWrap" class="kie-row" style="display:none">
+                <div style="grid-column:1/-1">
+                  <label>Idea prompt (non-custom, max 500 chars)</label>
+                  <textarea id="udioCoverSimplePrompt" rows="2" maxlength="500" placeholder="A calm piano cover…"></textarea>
+                </div>
+              </div>
+              <div id="udioCoverCustomWrap">
+                <div class="kie-row">
+                  <div style="grid-column:1/-1">
+                    <label>Lyrics (max 5000 — leave empty and tick Instrumental for none)</label>
+                    <textarea id="udioCoverPrompt" rows="3"></textarea>
+                  </div>
+                </div>
+                <div class="kie-row">
+                  <div>
+                    <label>Style</label>
+                    <input type="text" id="udioCoverStyle" maxlength="1000" />
+                  </div>
+                  <div>
+                    <label>Title (max 100)</label>
+                    <input type="text" id="udioCoverTitle" maxlength="100" />
+                  </div>
+                </div>
+              </div>
+              <label class="udio-browser-row" style="cursor:default">
+                <input type="checkbox" id="udioCoverInstrumental" />
+                <span>Instrumental (custom mode, no lyrics)</span>
+              </label>
+              <div class="kie-row">
+                <div>
+                  <label>Model</label>
+                  <select id="udioCoverModel">
+                    <option value="chirp-v6" selected>chirp-v6 (12 credits)</option>
+                    <option value="chirp-v6-mini">chirp-v6-mini (10 credits)</option>
+                    <option value="chirp-v6-wild">chirp-v6-wild (12 credits)</option>
+                  </select>
+                </div>
+                <div>
+                  <label>Image URLs (optional, non-custom, max 5, +1 credit)</label>
+                  <input type="text" id="udioCoverImageUrls" placeholder="comma-separated https links" />
+                </div>
+              </div>
+              <div class="kie-actions">
+                <button type="button" class="kie-btn" id="udioCoverBtn" onclick="startUdioUploadCover()"><i class="fas fa-upload"></i> Create cover</button>
+              </div>
+              <div id="udioCoverStatus" class="udio-status" style="display:none"></div>
+              <div id="udioCoverPlayers" class="udio-players"></div>
+            </div>
+            <div id="udioPanelArt" class="kie-tab-panel" style="display:none" data-udio-panel="art">
+              <p class="udio-mini">Generates <strong>2 cover images</strong> for a finished task (1 credit). Udio allows this <strong>once per task</strong>, and the image links are kept <strong>14 days</strong> — download what you want to keep.</p>
+              <div class="kie-row">
+                <div style="grid-column:1/-1">
+                  <label>Task ID (workId)</label>
+                  <input type="text" id="udioArtTaskId" placeholder="gen2…bksv" autocomplete="off" />
+                </div>
+              </div>
+              <div class="kie-actions">
+                <button type="button" class="kie-btn" id="udioArtBtn" onclick="startUdioCoverArt()"><i class="fas fa-image"></i> Generate cover art</button>
+              </div>
+              <div id="udioArtStatus" class="udio-status" style="display:none"></div>
+              <div id="udioArtResults" class="udio-art-grid"></div>
+            </div>
+            <div id="udioPanelWav" class="kie-tab-panel" style="display:none" data-udio-panel="wav">
+              <p class="udio-mini">Converts <strong>one finished audio</strong> to WAV. Both IDs come from the track&rsquo;s <strong>⋮</strong> menu on a Udio result.</p>
+              <div class="kie-row">
+                <div>
+                  <label>Music task ID</label>
+                  <input type="text" id="udioWavTaskId" placeholder="gen2…bksv" />
+                </div>
+                <div>
+                  <label>Audio ID</label>
+                  <input type="text" id="udioWavAudioId" placeholder="UUID of the variation" />
+                </div>
+              </div>
+              <div class="kie-actions">
+                <button type="button" class="kie-btn" id="udioWavBtn" onclick="startUdioWav()"><i class="fas fa-file-audio"></i> Convert to WAV</button>
+              </div>
+              <div id="udioWavStatus" class="udio-status" style="display:none"></div>
+              <div id="udioWavResults" class="udio-players"></div>
+            </div>
+            <div id="udioPanelAlign" class="kie-tab-panel" style="display:none" data-udio-panel="align">
+              <p class="udio-mini">Word-level <strong>lyric timings</strong> for one finished audio (2 credits, returns immediately — retry if Udio says it is still processing). Exports as <code>.lrc</code>.</p>
+              <div class="kie-row">
+                <div>
+                  <label>Music task ID</label>
+                  <input type="text" id="udioAlignTaskId" placeholder="gen2…bksv" />
+                </div>
+                <div>
+                  <label>Audio ID</label>
+                  <input type="text" id="udioAlignAudioId" placeholder="UUID of the variation" />
+                </div>
+              </div>
+              <div class="kie-actions">
+                <button type="button" class="kie-btn" id="udioAlignBtn" onclick="startUdioLyricsTiming()"><i class="fas fa-align-left"></i> Get lyric timing</button>
+              </div>
+              <div id="udioAlignStatus" class="udio-status" style="display:none"></div>
+              <div id="udioAlignResults"></div>
+            </div>
           </div>
         </div>
         <!-- Kie.ai Suno API -->
@@ -3900,14 +4118,20 @@ function formatAudioTime(sec) {
 /** Dropdown for Suno-style “use this track in Kie” shortcuts. */
 function buildKieTrackMenuHtml(meta) {
   var mode = meta.menu;
+  var isUdio = mode === 'udio';
   var taskId = meta.taskId || '';
   var audioId = meta.audioId || '';
+  var audioIndex = typeof meta.audioIndex === 'number' ? meta.audioIndex : 0;
   var safeUrl = meta.safeUrl || '';
   var titleEsc = meta.trackTitleEscaped || '';
+  /** Kie needs Kie ids; Udio exposes only a subset of the same actions. */
   var kieFull = mode === 'kie' && taskId && audioId;
   var kieAudioOnly = mode === 'kie' && audioId;
+  var udioTask = isUdio && !!taskId;
+  var udioTrack = isUdio && !!taskId && !!audioId;
   var hasUrl = !!safeUrl;
-  function item(action, label, enabled) {
+  var udioGap = 'Not available on the Udio API — use the Kie tabs with a Kie track.';
+  function item(action, label, enabled, why) {
     if (enabled) {
       return (
         '<button type="button" class="kie-track-menu-item" data-action="' +
@@ -3917,8 +4141,11 @@ function buildKieTrackMenuHtml(meta) {
         '</button>'
       );
     }
+    var reason = why || (isUdio ? udioGap : 'Requires a Kie.ai track (not Udio)');
     return (
-      '<button type="button" class="kie-track-menu-item is-disabled" disabled title="Requires a Kie.ai track (not Udio)">' +
+      '<button type="button" class="kie-track-menu-item is-disabled" disabled title="' +
+      escapeAttr(reason) +
+      '">' +
       label +
       '</button>'
     );
@@ -3930,6 +4157,8 @@ function buildKieTrackMenuHtml(meta) {
     escapeAttr(taskId) +
     '" data-audio-id="' +
     escapeAttr(audioId) +
+    '" data-audio-index="' +
+    escapeAttr(String(audioIndex)) +
     '" data-audio-url="' +
     escapeAttr(safeUrl) +
     '" data-track-title="' +
@@ -3937,24 +4166,34 @@ function buildKieTrackMenuHtml(meta) {
     '"';
   var rows = [];
   rows.push('<div class="kie-track-menu-sub">Task &amp; audio ID</div>');
-  rows.push(item('extend', 'Extend (platform)', kieAudioOnly));
+  rows.push(item('extend', 'Extend (platform)', kieAudioOnly || udioTrack, 'Needs a finished task with an audio ID.'));
   rows.push(item('video', 'Music video', kieFull));
   rows.push(item('stems', 'Stems', kieFull));
-  rows.push(item('wav', 'Convert to WAV', kieFull));
-  rows.push(item('align', 'Align lyrics (timestamped)', kieFull));
+  rows.push(item('wav', 'Convert to WAV', kieFull || udioTrack, 'Needs a finished task with an audio ID.'));
+  rows.push(item('align', 'Align lyrics (timestamped)', kieFull || udioTrack, 'Needs a finished task with an audio ID.'));
   rows.push(item('persona', 'Create persona', kieFull));
+  rows.push(
+    item(
+      'art',
+      'Generate cover art (Udio only)',
+      udioTask,
+      isUdio ? 'Needs a finished task ID.' : 'Only available on the Udio API.'
+    )
+  );
   rows.push('<div class="kie-track-menu-sub">Uses public audio URL</div>');
-  rows.push(item('cover', 'Cover upload', hasUrl));
-  rows.push(item('upext', 'Upload extend', hasUrl));
-  rows.push(item('instr', '+ Instrumental', hasUrl));
-  rows.push(item('vox', '+ Vocals', hasUrl));
+  rows.push(item('cover', 'Cover upload', hasUrl, 'Needs an audio URL.'));
+  rows.push(item('upext', 'Upload extend', !isUdio && hasUrl, isUdio ? udioGap : 'Needs an audio URL.'));
+  rows.push(item('instr', '+ Instrumental', !isUdio && hasUrl, isUdio ? udioGap : 'Needs an audio URL.'));
+  rows.push(item('vox', '+ Vocals', !isUdio && hasUrl, isUdio ? udioGap : 'Needs an audio URL.'));
   rows.push('<div class="kie-track-menu-sub">After stems</div>');
   rows.push(item('midi', 'MIDI (paste stem task after)', kieFull));
   return (
     '<div ' +
     wrapAttrs +
     '>' +
-    '<button type="button" class="kie-track-menu-btn" aria-label="Track actions" title="Fill Kie tabs from this track">' +
+    '<button type="button" class="kie-track-menu-btn" aria-label="Track actions" title="Fill ' +
+    (isUdio ? 'Udio' : 'Kie') +
+    ' tabs from this track">' +
     '<i class="fas fa-ellipsis-vertical"></i>' +
     '</button>' +
     '<div class="kie-track-menu-dropdown" hidden>' +
@@ -4100,8 +4339,9 @@ function initAudioPlayerCards(root) {
     if (fn) fn(ev.clientX);
   });
 })();
-function renderUdioPlayers(responseData, requestBody) {
-  var el = document.getElementById('udioPlayers');
+function renderUdioPlayers(responseData, requestBody, taskId, mountId) {
+  var el = document.getElementById(mountId || 'udioPlayers');
+  if (!el) return;
   var blocks = [];
   var reqTitle =
     (requestBody && requestBody.title && String(requestBody.title).trim()) ||
@@ -4131,6 +4371,9 @@ function renderUdioPlayers(responseData, requestBody) {
     blocks.push(
       buildAudioPlayerHtml(safeUrl, escapeHistoryHtml(label), {
         menu: 'udio',
+        taskId: taskId || '',
+        audioId: r.id ? String(r.id) : '',
+        audioIndex: i,
         trackTitleEscaped: escapeAttr(trackTitleForMeta),
         downloadFilenameHint: escapeAttr(trackTitleForMeta),
       })
@@ -4204,7 +4447,7 @@ async function runUdioPollAttempt(workId, attempt) {
     }
     if (isUdioComplete(rd)) {
       statusEl.textContent = 'Ready — play below.';
-      renderUdioPlayers(rd, data.data && data.data.request_body);
+      renderUdioPlayers(rd, data.data && data.data.request_body, workId);
       btn.disabled = false;
       return;
     }
@@ -4213,7 +4456,7 @@ async function runUdioPollAttempt(workId, attempt) {
         return r.audio_url && String(r.audio_url).trim();
       });
       if (partial.length) {
-        renderUdioPlayers(partial, data.data && data.data.request_body);
+        renderUdioPlayers(partial, data.data && data.data.request_body, workId);
         statusEl.textContent = 'Partial audio (timeout). Refresh or check Udio for full render.';
       } else {
         statusEl.textContent = 'Timed out before audio URLs appeared.';
@@ -4339,6 +4582,635 @@ async function startUdioGeneration() {
     clearTimeout(clientTimer);
   }
 }
+/* ===== UDIO API: extend / upload-cover / cover art / WAV / lyric timing ===== */
+/** op → endpoint shape; kept in sync with api/udio-api.js */
+var UDIO_OPS = {
+  extend: { method: 'POST', path: '/v2/extend' },
+  uploadCover: { method: 'POST', path: '/v2/upload-cover/generate' },
+  uploadCoverStatus: { method: 'GET', path: '/v2/upload-cover/status' },
+  coverGenerate: { method: 'POST', path: '/v2/cover/generate' },
+  coverStatus: { method: 'GET', path: '/v2/cover/status' },
+  wavGenerate: { method: 'POST', path: '/v2/wav/generate' },
+  wavStatus: { method: 'GET', path: '/v2/wav/status' },
+  timestampedLyrics: { method: 'POST', path: '/v2/timestamped-lyrics' }
+};
+function udioShowTab(name) {
+  document.querySelectorAll('.kie-tab[data-udio-tab]').forEach(function(b) {
+    if (b.getAttribute('data-udio-tab') === name) b.classList.add('active');
+    else b.classList.remove('active');
+  });
+  document.querySelectorAll('.kie-tab-panel[data-udio-panel]').forEach(function(p) {
+    p.style.display = p.getAttribute('data-udio-panel') === name ? 'block' : 'none';
+  });
+}
+function udioScrollToUdioPanel() {
+  var sec = document.getElementById('udioSection');
+  if (sec) sec.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+function udioToggleExtendCustom() {
+  var c = document.getElementById('udioExtCustomMode');
+  var w = document.getElementById('udioExtCustomWrap');
+  if (c && w) w.style.display = c.checked ? 'block' : 'none';
+}
+function udioToggleCoverCustom() {
+  var c = document.getElementById('udioCoverCustomMode');
+  var custom = document.getElementById('udioCoverCustomWrap');
+  var simple = document.getElementById('udioCoverNonCustomWrap');
+  var on = !!(c && c.checked);
+  if (custom) custom.style.display = on ? 'block' : 'none';
+  if (simple) simple.style.display = on ? 'none' : 'block';
+}
+function udioVal(id) {
+  var el = document.getElementById(id);
+  return el ? String(el.value || '').trim() : '';
+}
+function udioSetStatus(id, msg) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.style.display = 'block';
+  el.textContent = msg;
+}
+function udioEnableBtn(id) {
+  var b = id ? document.getElementById(id) : null;
+  if (b) b.disabled = false;
+}
+function udioTaskIdFrom(data) {
+  if (!data) return '';
+  return data.workId || (data.data && (data.data.task_id || data.data.taskId)) || '';
+}
+/** Direct to udioapi.pro in browser mode, otherwise through /api/udio-api. */
+async function udioApiCall(op, payload) {
+  var spec = UDIO_OPS[op];
+  if (!spec) throw new Error('Unknown Udio op: ' + op);
+  payload = payload || {};
+  if (udioDirectMode && udioDirectKey) {
+    var url = UDIO_PUBLIC_API + spec.path;
+    var headers = { Authorization: 'Bearer ' + udioDirectKey };
+    var init = { method: spec.method, headers: headers };
+    if (spec.method === 'POST') {
+      headers['Content-Type'] = 'application/json';
+      init.body = JSON.stringify(payload);
+    } else {
+      url += '?task_id=' + encodeURIComponent(payload.task_id || '');
+    }
+    var r = await fetch(url, init);
+    var direct = await r.json().catch(function() {
+      return { code: r.status, message: 'Invalid JSON from Udio' };
+    });
+    if (!r.ok && !direct.message && !direct.msg) direct.message = 'Udio error (' + r.status + ')';
+    return direct;
+  }
+  var res = await fetch('/api/udio-api', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ op: op, payload: payload })
+  });
+  var data = await res.json().catch(function() {
+    return {};
+  });
+  if (!res.ok && !data.message && !data.msg) {
+    data.message = 'Udio proxy error (' + res.status + ')';
+  }
+  return data;
+}
+
+/* ---- shared poller for Udio async tasks (feed / cover / upload-cover / wav) ---- */
+var udioTaskPollTimer = null;
+var udioTaskPollSeq = 0;
+function clearUdioTaskPoll() {
+  udioTaskPollSeq++;
+  if (udioTaskPollTimer) {
+    clearTimeout(udioTaskPollTimer);
+    udioTaskPollTimer = null;
+  }
+}
+function udioPollMax(kind) {
+  return kind === 'feed' ? 90 : 60;
+}
+function udioFailureText(payload, status) {
+  if (Array.isArray(payload)) {
+    var joined = payload
+      .map(function(r) {
+        return r && (r.fail_message || r.error_message);
+      })
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+    if (joined) return joined;
+  }
+  if (payload && (payload.error_message || payload.error)) {
+    return String(payload.error_message || payload.error);
+  }
+  return status || 'Content policy or generation error';
+}
+function scheduleUdioTaskPoll(cfg, taskId, attempt) {
+  clearUdioTaskPoll();
+  var seq = udioTaskPollSeq;
+  var max = udioPollMax(cfg.kind);
+  if (attempt >= max) {
+    udioSetStatus(
+      cfg.statusId,
+      'Timed out after ' + max + ' checks. Keep the task ID — Udio may still finish it.'
+    );
+    udioEnableBtn(cfg.btnId);
+    return;
+  }
+  udioTaskPollTimer = setTimeout(function() {
+    if (seq !== udioTaskPollSeq) return;
+    runUdioTaskPoll(cfg, taskId, attempt);
+  }, attempt === 0 ? 3000 : 6000);
+}
+/**
+ * cfg: { kind: 'feed'|'uploadCover'|'cover'|'wav', statusId, btnId, onDone(payload, requestBody, taskId) }
+ */
+async function runUdioTaskPoll(cfg, taskId, attempt) {
+  var max = udioPollMax(cfg.kind);
+  try {
+    var state = '';
+    var payload = null;
+    var requestBody = null;
+
+    if (cfg.kind === 'feed') {
+      var feed = null;
+      if (udioDirectMode && udioDirectKey) {
+        var r1 = await fetch(
+          UDIO_PUBLIC_API + '/v2/feed?workId=' + encodeURIComponent(taskId),
+          { headers: { Authorization: 'Bearer ' + udioDirectKey } }
+        );
+        feed = await r1.json().catch(function() {
+          return {};
+        });
+      } else {
+        var r2 = await fetch('/api/udio-feed?workId=' + encodeURIComponent(taskId));
+        feed = await r2.json().catch(function() {
+          return {};
+        });
+      }
+      if (feed && feed.code === 404) {
+        udioSetStatus(cfg.statusId, 'Waiting for task… (' + (attempt + 1) + ')');
+        scheduleUdioTaskPoll(cfg, taskId, attempt + 1);
+        return;
+      }
+      if (feed && feed.code && feed.code !== 200) {
+        udioSetStatus(cfg.statusId, feed.message || feed.msg || 'Feed error');
+        udioEnableBtn(cfg.btnId);
+        return;
+      }
+      var fd = (feed && feed.data) || {};
+      state = String(fd.type || '');
+      payload = fd.response_data;
+      requestBody = fd.request_body || null;
+    } else {
+      var st = await udioApiCall(cfg.kind + 'Status', { task_id: taskId });
+      if (st && ((typeof st.code === 'number' && st.code !== 200) || (st.msg && !st.data))) {
+        throw new Error(st.message || st.msg || 'Status error');
+      }
+      var sd = (st && st.data) || {};
+      state = String(sd.type || sd.status || '');
+      payload = Array.isArray(sd.response_data) ? sd.response_data : sd;
+      requestBody = sd.request_body || null;
+    }
+
+    var failed = /FAIL|ERROR/i.test(state);
+    if (!failed && cfg.kind === 'feed' && Array.isArray(payload) && payload.length && isUdioFailed(payload)) {
+      failed = true;
+    }
+    if (failed) {
+      var why = udioFailureText(payload, state);
+      udioSetStatus(cfg.statusId, 'Stopped: ' + why);
+      showToast('Udio: ' + why);
+      udioEnableBtn(cfg.btnId);
+      return;
+    }
+
+    var done = /SUCCESS|COMPLETE/i.test(state);
+    if (!done && cfg.kind === 'feed' && Array.isArray(payload) && payload.length && isUdioComplete(payload)) {
+      done = true;
+    }
+    if (!done && cfg.kind === 'cover' && payload && payload.images && payload.images.length) done = true;
+    if (!done && cfg.kind === 'wav' && payload && payload.audio_wav_url) done = true;
+
+    if (done) {
+      cfg.onDone(payload || {}, requestBody, taskId);
+      udioEnableBtn(cfg.btnId);
+      return;
+    }
+
+    if (cfg.kind === 'feed' && attempt >= max - 2) {
+      var partial = (payload || []).filter(function(r) {
+        return r && r.audio_url && String(r.audio_url).trim();
+      });
+      if (partial.length) {
+        cfg.onDone(partial, requestBody, taskId);
+        udioSetStatus(cfg.statusId, 'Partial audio (timeout). Retry later or check Udio for the full render.');
+      } else {
+        udioSetStatus(cfg.statusId, 'Timed out before audio URLs appeared. Task: ' + taskId);
+      }
+      udioEnableBtn(cfg.btnId);
+      return;
+    }
+
+    udioSetStatus(cfg.statusId, 'Rendering… ' + (attempt + 1) + ' / ~' + max + ' checks');
+    scheduleUdioTaskPoll(cfg, taskId, attempt + 1);
+  } catch (e) {
+    udioSetStatus(cfg.statusId, 'Poll error: ' + ((e && e.message) || String(e)));
+    udioEnableBtn(cfg.btnId);
+  }
+}
+/* ---- Udio: extend a finished task ---- */
+async function startUdioExtend() {
+  clearUdioTaskPoll();
+  var btn = document.getElementById('udioExtendBtn');
+  var statusId = 'udioExtendStatus';
+  var origin = udioVal('udioExtOriginTaskId');
+  if (!origin) {
+    udioSetStatus(statusId, 'Paste the original Udio task ID (workId) — the ⋮ menu on a Udio track fills it.');
+    return;
+  }
+  var customEl = document.getElementById('udioExtCustomMode');
+  var custom = !!(customEl && customEl.checked);
+  var payload = {
+    origin_task_id: origin,
+    extend_audio_index: udioVal('udioExtAudioIndex') === '1' ? 1 : 0,
+    custom_mode: custom
+  };
+  if (custom) {
+    payload.prompt = udioVal('udioExtPrompt');
+    if (!payload.prompt) {
+      udioSetStatus(statusId, 'Custom mode needs lyrics for the new section.');
+      return;
+    }
+    payload.style = udioVal('udioExtStyle');
+    payload.title = udioVal('udioExtTitle');
+    payload.tags = udioVal('udioExtTags');
+    var start = parseInt(udioVal('udioExtStart'), 10);
+    if (start > 0) payload.extensionStartTime = start;
+  }
+  var mount = document.getElementById('udioExtendPlayers');
+  if (mount) mount.innerHTML = '';
+  if (btn) btn.disabled = true;
+  udioSetStatus(statusId, 'Submitting extension…');
+  try {
+    var data = await udioApiCall('extend', payload);
+    var id = udioTaskIdFrom(data);
+    if (!id) throw new Error(data.message || data.msg || 'No task id from Udio');
+    udioSetStatus(statusId, 'Rendering… (often 1–3 min). Task: ' + id);
+    scheduleUdioTaskPoll(
+      {
+        kind: 'feed',
+        statusId: statusId,
+        btnId: 'udioExtendBtn',
+        onDone: function(rows, requestBody, taskId) {
+          renderUdioPlayers(rows || [], requestBody, taskId, 'udioExtendPlayers');
+          udioSetStatus(statusId, 'Ready — play below.');
+        }
+      },
+      id,
+      0
+    );
+  } catch (e) {
+    udioSetStatus(statusId, 'Error: ' + ((e && e.message) || String(e)));
+    showToast('Udio extend failed');
+    if (btn) btn.disabled = false;
+  }
+}
+/* ---- Udio: upload own audio + cover ---- */
+async function startUdioUploadCover() {
+  clearUdioTaskPoll();
+  var btn = document.getElementById('udioCoverBtn');
+  var statusId = 'udioCoverStatus';
+  var uploadUrl = udioVal('udioCoverUploadUrl');
+  if (!uploadUrl) {
+    udioSetStatus(statusId, 'Add a public audio URL (or use Choose file to put it on Vercel Blob).');
+    return;
+  }
+  var customEl = document.getElementById('udioCoverCustomMode');
+  var instrEl = document.getElementById('udioCoverInstrumental');
+  var custom = !!(customEl && customEl.checked);
+  var instrumental = !!(instrEl && instrEl.checked);
+  var payload = {
+    upload_url: uploadUrl,
+    model: udioVal('udioCoverModel') || 'chirp-v6',
+    custom_mode: custom
+  };
+  if (custom) {
+    payload.make_instrumental = instrumental;
+    payload.prompt = udioVal('udioCoverPrompt');
+    if (!instrumental && !payload.prompt) {
+      udioSetStatus(statusId, 'Custom mode needs lyrics — or tick Instrumental.');
+      return;
+    }
+    payload.style = udioVal('udioCoverStyle');
+    payload.title = udioVal('udioCoverTitle');
+  } else {
+    payload.prompt = udioVal('udioCoverSimplePrompt');
+    if (!payload.prompt) {
+      udioSetStatus(statusId, 'Non-custom mode needs an idea prompt (max 500 chars).');
+      return;
+    }
+    payload.image_urls = udioVal('udioCoverImageUrls');
+  }
+  var mount = document.getElementById('udioCoverPlayers');
+  if (mount) mount.innerHTML = '';
+  if (btn) btn.disabled = true;
+  udioSetStatus(statusId, 'Submitting cover…');
+  try {
+    var data = await udioApiCall('uploadCover', payload);
+    var id = udioTaskIdFrom(data);
+    if (!id) throw new Error(data.message || data.msg || 'No task id from Udio');
+    udioSetStatus(statusId, 'Rendering cover… (often 1–3 min). Task: ' + id);
+    scheduleUdioTaskPoll(
+      {
+        kind: 'uploadCover',
+        statusId: statusId,
+        btnId: 'udioCoverBtn',
+        onDone: function(rows, requestBody, taskId) {
+          renderUdioPlayers(rows || [], requestBody, taskId, 'udioCoverPlayers');
+          udioSetStatus(statusId, 'Ready — play below.');
+        }
+      },
+      id,
+      0
+    );
+  } catch (e) {
+    udioSetStatus(statusId, 'Error: ' + ((e && e.message) || String(e)));
+    showToast('Udio cover failed');
+    if (btn) btn.disabled = false;
+  }
+}
+/* ---- Udio: cover art for a finished task (1 credit, once per task) ---- */
+function renderUdioCoverArt(images) {
+  var el = document.getElementById('udioArtResults');
+  if (!el) return;
+  if (!images || !images.length) {
+    el.innerHTML = '';
+    return;
+  }
+  el.innerHTML = images
+    .map(function(u, i) {
+      var safe = escapeAttr(String(u));
+      return (
+        '<div class="udio-art-card">' +
+        '<a href="' + safe + '" target="_blank" rel="noopener">' +
+        '<img src="' + safe + '" alt="Cover ' + (i + 1) + '" loading="lazy" />' +
+        '</a>' +
+        '<a href="' + safe + '" target="_blank" rel="noopener"><i class="fas fa-arrow-up-right-from-square"></i> Open cover ' + (i + 1) + '</a>' +
+        '</div>'
+      );
+    })
+    .join('');
+}
+async function startUdioCoverArt() {
+  clearUdioTaskPoll();
+  var btn = document.getElementById('udioArtBtn');
+  var statusId = 'udioArtStatus';
+  var taskId = udioVal('udioArtTaskId');
+  if (!taskId) {
+    udioSetStatus(statusId, 'Paste a finished task ID (workId) — the ⋮ menu fills it.');
+    return;
+  }
+  renderUdioCoverArt([]);
+  if (btn) btn.disabled = true;
+  udioSetStatus(statusId, 'Submitting cover-art task…');
+  try {
+    var data = await udioApiCall('coverGenerate', { taskId: taskId });
+    var id = (data.data && data.data.taskId) || data.taskId || data.workId;
+    if (!id) throw new Error(data.msg || data.message || 'No cover task id from Udio');
+    udioSetStatus(statusId, 'Drawing 2 covers… Task: ' + id);
+    scheduleUdioTaskPoll(
+      {
+        kind: 'cover',
+        statusId: statusId,
+        btnId: 'udioArtBtn',
+        onDone: function(payload) {
+          renderUdioCoverArt((payload && payload.images) || []);
+          udioSetStatus(statusId, 'Cover art ready — save it within 14 days.');
+        }
+      },
+      id,
+      0
+    );
+  } catch (e) {
+    udioSetStatus(statusId, 'Error: ' + ((e && e.message) || String(e)));
+    showToast('Udio cover art failed');
+    if (btn) btn.disabled = false;
+  }
+}
+/* ---- Udio: WAV conversion ---- */
+function renderUdioWavResult(data, taskId) {
+  var el = document.getElementById('udioWavResults');
+  if (!el) return;
+  var url = data && data.audio_wav_url;
+  if (!url) {
+    el.innerHTML = '';
+    return;
+  }
+  el.innerHTML = buildAudioPlayerHtml(escapeAttr(String(url)), escapeHistoryHtml('WAV · ' + taskId), {
+    downloadFilenameHint: escapeAttr('udio-' + taskId + '.wav')
+  });
+  initAudioPlayerCards(el);
+}
+async function startUdioWav() {
+  clearUdioTaskPoll();
+  var btn = document.getElementById('udioWavBtn');
+  var statusId = 'udioWavStatus';
+  var taskId = udioVal('udioWavTaskId');
+  var audioId = udioVal('udioWavAudioId');
+  if (!taskId || !audioId) {
+    udioSetStatus(statusId, 'Both IDs are required — the ⋮ menu on a Udio track fills them.');
+    return;
+  }
+  var mount = document.getElementById('udioWavResults');
+  if (mount) mount.innerHTML = '';
+  if (btn) btn.disabled = true;
+  udioSetStatus(statusId, 'Submitting WAV conversion…');
+  try {
+    var data = await udioApiCall('wavGenerate', { task_id: taskId, audio_id: audioId });
+    var id = udioTaskIdFrom(data);
+    if (!id) throw new Error(data.message || data.msg || 'No WAV task id from Udio');
+    udioSetStatus(statusId, 'Converting… Task: ' + id);
+    scheduleUdioTaskPoll(
+      {
+        kind: 'wav',
+        statusId: statusId,
+        btnId: 'udioWavBtn',
+        onDone: function(payload, requestBody, refTaskId) {
+          renderUdioWavResult(payload, refTaskId);
+          udioSetStatus(statusId, 'WAV ready — download below.');
+        }
+      },
+      id,
+      0
+    );
+  } catch (e) {
+    udioSetStatus(statusId, 'Error: ' + ((e && e.message) || String(e)));
+    showToast('Udio WAV conversion failed');
+    if (btn) btn.disabled = false;
+  }
+}
+/* ---- Udio: word-level lyric timing (sync, 2 credits) ---- */
+var udioLrcCurrent = '';
+var udioLrcTaskId = '';
+function udioLrcFromWords(words) {
+  var lines = [];
+  var cur = null;
+  function flush() {
+    if (cur && String(cur.text).trim()) lines.push(cur);
+  }
+  for (var i = 0; i < words.length; i++) {
+    var w = words[i] || {};
+    var parts = String(w.text == null ? '' : w.text).split('\n');
+    var t = typeof w.startTime === 'number' ? w.startTime : 0;
+    for (var k = 0; k < parts.length; k++) {
+      if (k > 0) {
+        flush();
+        cur = { time: t, text: '' };
+      }
+      if (!cur) cur = { time: t, text: '' };
+      cur.text += parts[k];
+    }
+  }
+  flush();
+  return lines.map(function(l) {
+    var m = Math.floor(l.time / 60);
+    var s = l.time - m * 60;
+    var ss = s.toFixed(2);
+    if (s < 10) ss = '0' + ss;
+    return '[' + (m < 10 ? '0' + m : m) + ':' + ss + '] ' + String(l.text).trim();
+  });
+}
+function renderUdioLyricTiming(data, taskId) {
+  var el = document.getElementById('udioAlignResults');
+  if (!el) return;
+  var words = (data && data.lyricAlignment && data.lyricAlignment.words) || [];
+  var lrc = udioLrcFromWords(words);
+  udioLrcCurrent = lrc.join('\n');
+  udioLrcTaskId = taskId || '';
+  if (!lrc.length) {
+    el.innerHTML = '';
+    showToast('Udio returned no aligned words for this audio');
+    return;
+  }
+  var score = typeof data.alignmentScore === 'number' ? data.alignmentScore.toFixed(3) : '—';
+  var wave = Array.isArray(data.audioWaveform) ? data.audioWaveform.length : 0;
+  el.innerHTML =
+    '<p class="udio-mini">' +
+    lrc.length +
+    ' timed lines · alignment score ' +
+    score +
+    ' · waveform samples ' +
+    wave +
+    '</p>' +
+    '<pre class="udio-lrc">' +
+    escapeHistoryHtml(udioLrcCurrent) +
+    '</pre>' +
+    '<div class="udio-lrc-actions">' +
+    '<button type="button" class="kie-btn" onclick="udioCopyLrc()"><i class="fas fa-copy"></i> Copy LRC</button>' +
+    '<button type="button" class="kie-btn" onclick="udioDownloadLrc()"><i class="fas fa-download"></i> Download .lrc</button>' +
+    '</div>';
+}
+async function udioCopyLrc() {
+  if (!udioLrcCurrent) {
+    showToast('Nothing to copy yet');
+    return;
+  }
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(udioLrcCurrent);
+      showToast('LRC copied');
+      return;
+    }
+  } catch (e) {}
+  showToast('Clipboard blocked — use Download .lrc instead');
+}
+function udioDownloadLrc() {
+  if (!udioLrcCurrent) {
+    showToast('Nothing to export yet');
+    return;
+  }
+  var blob = new Blob([udioLrcCurrent], { type: 'text/plain;charset=utf-8' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'udio-' + (udioLrcTaskId || 'lyrics') + '.lrc';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function() {
+    URL.revokeObjectURL(url);
+  }, 2000);
+}
+async function startUdioLyricsTiming() {
+  var btn = document.getElementById('udioAlignBtn');
+  var statusId = 'udioAlignStatus';
+  var taskId = udioVal('udioAlignTaskId');
+  var audioId = udioVal('udioAlignAudioId');
+  if (!taskId || !audioId) {
+    udioSetStatus(statusId, 'Both IDs are required — the ⋮ menu on a Udio track fills them.');
+    return;
+  }
+  var mount = document.getElementById('udioAlignResults');
+  if (mount) mount.innerHTML = '';
+  udioLrcCurrent = '';
+  if (btn) btn.disabled = true;
+  udioSetStatus(statusId, 'Aligning lyrics…');
+  try {
+    var data = await udioApiCall('timestampedLyrics', { task_id: taskId, audio_id: audioId });
+    if (data.code !== 200 || !data.data) {
+      var msg = data.message || data.msg || 'Udio could not align this track';
+      udioSetStatus(
+        statusId,
+        /processing/i.test(msg)
+          ? 'Udio is still aligning — wait a few seconds and press the button again.'
+          : msg
+      );
+    } else {
+      renderUdioLyricTiming(data.data, taskId);
+      udioSetStatus(statusId, 'Done — copy or download the .lrc below.');
+    }
+  } catch (e) {
+    udioSetStatus(statusId, 'Error: ' + ((e && e.message) || String(e)));
+  }
+  if (btn) btn.disabled = false;
+}
+/* ---- Udio: ⋮ track menu shortcuts ---- */
+function udioApplyTrackShortcut(action, taskId, audioId, audioIndex, audioUrl, trackTitle) {
+  function setVal(id, val) {
+    var el = document.getElementById(id);
+    if (el) el.value = val == null ? '' : String(val);
+  }
+  switch (action) {
+    case 'extend':
+      udioShowTab('extend');
+      setVal('udioExtOriginTaskId', taskId);
+      setVal('udioExtAudioIndex', audioIndex === 1 || audioIndex === '1' ? '1' : '0');
+      if (trackTitle) setVal('udioExtTitle', trackTitle);
+      break;
+    case 'wav':
+      udioShowTab('wav');
+      setVal('udioWavTaskId', taskId);
+      setVal('udioWavAudioId', audioId);
+      break;
+    case 'align':
+      udioShowTab('align');
+      setVal('udioAlignTaskId', taskId);
+      setVal('udioAlignAudioId', audioId);
+      break;
+    case 'art':
+      udioShowTab('art');
+      setVal('udioArtTaskId', taskId);
+      break;
+    case 'cover':
+      udioShowTab('cover');
+      setVal('udioCoverUploadUrl', audioUrl);
+      break;
+    default:
+      return;
+  }
+  udioScrollToUdioPanel();
+  showToast('Udio: fields filled — review the tab and run.');
+}
+
 /* ===== KIE.AI SUNO API ===== */
 function kieShowTab(name) {
   document.querySelectorAll('.kie-tab').forEach(function(b) {
@@ -4446,13 +5318,24 @@ function kieApplyTrackShortcut(action, taskId, audioId, audioUrl, trackTitle) {
       var w = item.closest('.kie-track-menu-wrap');
       var act = item.getAttribute('data-action');
       if (w && act) {
-        kieApplyTrackShortcut(
-          act,
-          w.dataset.taskId || '',
-          w.dataset.audioId || '',
-          w.dataset.audioUrl || '',
-          w.dataset.trackTitle || ''
-        );
+        if (w.dataset.menuMode === 'udio') {
+          udioApplyTrackShortcut(
+            act,
+            w.dataset.taskId || '',
+            w.dataset.audioId || '',
+            w.dataset.audioIndex || '0',
+            w.dataset.audioUrl || '',
+            w.dataset.trackTitle || ''
+          );
+        } else {
+          kieApplyTrackShortcut(
+            act,
+            w.dataset.taskId || '',
+            w.dataset.audioId || '',
+            w.dataset.audioUrl || '',
+            w.dataset.trackTitle || ''
+          );
+        }
         var dr = w.querySelector('.kie-track-menu-dropdown');
         if (dr) dr.hidden = true;
       }
