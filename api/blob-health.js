@@ -1,31 +1,29 @@
-import { put, del } from '@vercel/blob';
-
 /**
- * Vercel Blob health check (Edge runtime, so it always answers).
- * GET /api/blob-health           → reports whether the write token is present
- * GET /api/blob-health?probe=1   → additionally does a real put + delete round-trip
+ * Blob health check — reports whether this deployment can write to Vercel Blob.
  *
- * Never returns the token itself — only its length and a masked hint.
+ * GET /api/blob-health  → is a write token present? (never returns the token itself)
+ *
+ * Deliberately a classic Node (req, res) handler with no SDK import, so it also
+ * answers the question "does this deployment's Node runtime respond at all?".
  */
 export const config = {
-  runtime: 'edge',
-  maxDuration: 30,
+  maxDuration: 15,
 };
 
-/** Names a Vercel Blob store can inject; checked in order. */
-const TOKEN_NAMES = ['BLOB_READ_WRITE_TOKEN', 'VERCEL_BLOB_READ_WRITE_TOKEN', 'BLOB_READ_WRITE_TOKEN_PREFIX'];
+/** Env names a linked Vercel Blob store can inject. */
+const TOKEN_NAMES = ['BLOB_READ_WRITE_TOKEN', 'VERCEL_BLOB_READ_WRITE_TOKEN'];
 
-function json(body, status = 200) {
-  return new Response(JSON.stringify(body, null, 2), {
-    status,
-    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
-  });
+function send(res, status, body) {
+  res.statusCode = status;
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Cache-Control', 'no-store');
+  res.end(JSON.stringify(body, null, 2));
 }
 
 function mask(value) {
   const v = String(value || '').trim();
   if (!v) return '';
-  if (v.length <= 12) return '…';
+  if (v.length <= 14) return '…';
   return v.slice(0, 14) + '…' + v.slice(-4);
 }
 
@@ -38,20 +36,21 @@ function readToken() {
   return { name: '', value: '' };
 }
 
-export default async function handler(request) {
-  if (request.method !== 'GET' && request.method !== 'HEAD') {
-    return json({ error: 'Method not allowed' }, 405);
+export default function handler(req, res) {
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    return send(res, 405, { error: 'Method not allowed' });
   }
 
   const token = readToken();
-  const blobEnv = Object.keys(process.env)
+  const blobEnvNames = Object.keys(process.env)
     .filter((k) => /BLOB/i.test(k))
     .sort();
 
   const report = {
-    ok: false,
-    runtime: 'edge',
-    region: request.headers.get('x-vercel-id') || '',
+    ok: !!token.value,
+    nodeRuntimeAnswers: true,
+    node: process.version,
+    region: process.env.VERCEL_REGION || '',
     token: {
       found: !!token.value,
       envName: token.name || null,
@@ -59,46 +58,11 @@ export default async function handler(request) {
       masked: mask(token.value),
       looksLikeVercelBlobToken: token.value.startsWith('vercel_blob_rw_'),
     },
-    blobEnvNames: blobEnv,
-    hint: token.value
-      ? 'Token present. Run this URL with ?probe=1 to confirm a real write/delete round-trip.'
-      : 'No Blob token on this deployment. Vercel → Storage → create/link a Blob store to this project, then redeploy (env vars are only injected at deploy time).',
+    blobEnvNames,
+    next: token.value
+      ? 'Token present — try "Choose file" on an upload tab again. If the write still fails, the store was deleted, rotated, or belongs to another team/project.'
+      : 'No Blob token here. Vercel → Storage → Blob → connect the store to THIS project (env vars are injected on the next deploy), then redeploy. Paste a direct audio URL meanwhile.',
   };
 
-  if (!token.value) {
-    return json(report, 200);
-  }
-
-  const wantsProbe = new URL(request.url).searchParams.get('probe') === '1';
-  if (!wantsProbe) {
-    report.ok = true;
-    return json(report, 200);
-  }
-
-  const started = Date.now();
-  const name = 'health/blob-check-' + Date.now() + '.txt';
-  try {
-    const result = await put(name, 'ok', {
-      access: 'public',
-      token: token.value,
-      contentType: 'text/plain',
-      addRandomSuffix: true,
-    });
-    report.probe = { put: 'ok', url: result.url, ms: Date.now() - started };
-    try {
-      await del(result.url, { token: token.value });
-      report.probe.deleted = true;
-    } catch (e) {
-      report.probe.deleted = false;
-      report.probe.deleteError = e instanceof Error ? e.message : String(e);
-    }
-    report.ok = true;
-    return json(report, 200);
-  } catch (e) {
-    const message = e instanceof Error ? e.message : String(e);
-    report.probe = { put: 'failed', error: message, ms: Date.now() - started };
-    report.hint =
-      'Token is set but Vercel Blob rejected the write. Usually a deleted/rotated store, a token from another team, or a store not linked to this project.';
-    return json(report, 502);
-  }
+  return send(res, 200, report);
 }

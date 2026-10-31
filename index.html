@@ -5857,9 +5857,16 @@ async function kieBlobUploadToField(input) {
     var url;
     var needClientUpload = file.size > KIE_BLOB_SIMPLE_MAX;
     if (!needClientUpload) {
-      var fd = new FormData();
-      fd.append('file', file, file.name);
-      var res = await fetch('/api/blob-put-simple', { method: 'POST', body: fd });
+      /** Raw bytes + headers: the server handler has no multipart parser. */
+      var res = await fetch('/api/blob-put-simple', {
+        method: 'POST',
+        headers: {
+          'content-type': file.type || 'application/octet-stream',
+          'x-filename': encodeURIComponent(file.name || 'upload.bin'),
+          'x-file-size': String(file.size || 0),
+        },
+        body: file,
+      });
       var rawText = await res.text();
       /** @type {Record<string, unknown>} */
       var data = {};
@@ -5881,7 +5888,7 @@ async function kieBlobUploadToField(input) {
         var errMsg = (data && data.error) || 'Upload failed (' + res.status + ')';
         if (res.status === 503 && String(errMsg).indexOf('BLOB_READ_WRITE_TOKEN') !== -1) {
           errMsg +=
-            ' In Vercel: link Blob store to this project (not only manual uploads in the dashboard). Redeploy after linking.';
+            ' Open /api/blob-health to confirm what this deployment sees, then link the Blob store and redeploy.';
         }
         throw new Error(String(errMsg));
       }
