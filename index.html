@@ -5887,8 +5887,12 @@ async function kieBlobUploadToField(input) {
       } else {
         var errMsg = (data && data.error) || 'Upload failed (' + res.status + ')';
         if (res.status === 503 && String(errMsg).indexOf('BLOB_READ_WRITE_TOKEN') !== -1) {
-          errMsg +=
-            ' Open /api/blob-health to confirm what this deployment sees, then link the Blob store and redeploy.';
+          var isLocal =
+            typeof location !== 'undefined' &&
+            /^(localhost|127\.0\.0\.1|\[::1\])$/i.test(location.hostname || '');
+          errMsg += isLocal
+            ? ' Locally: run `npx vercel env pull .env.local` (or copy the token from Vercel → Storage → Blob) and restart `npm run dev:vercel`.'
+            : ' Open /api/blob-health to see what this deployment sees, then link the Blob store and redeploy.';
         }
         throw new Error(String(errMsg));
       }

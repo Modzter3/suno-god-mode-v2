@@ -4,15 +4,58 @@ import postgres from 'postgres';
  * Past generations — works with Prisma Postgres, Neon, or any standard Postgres URL.
  * Uses POSTGRES_URL, POSTGRES_PRISMA_URL, or DATABASE_URL (first non-empty).
  * URLs like prisma:// (Accelerate only) are not supported here; use the direct SQL URL from your provider.
+ *
+ * Classic Node (req, res) handler on purpose: Web-style `return new Response(...)`
+ * handlers on this project's Node runtime never answer (they hang until timeout).
  */
 export const config = {
   maxDuration: 30,
 };
 
-function json(body, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
+function send(res, status, body) {
+  res.statusCode = status;
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Cache-Control', 'no-store');
+  res.end(JSON.stringify(body));
+}
+
+function sendText(res, status, text) {
+  res.statusCode = status;
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  res.end(text);
+}
+
+function readJson(req) {
+  return new Promise((resolve, reject) => {
+    var chunks = [];
+    var size = 0;
+    var settled = false;
+    req.on('data', function (chunk) {
+      if (settled) return;
+      size += chunk.length;
+      if (size > 8 * 1024 * 1024) {
+        settled = true;
+        reject(new Error('Request body too large'));
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on('end', function () {
+      if (settled) return;
+      settled = true;
+      var text = Buffer.concat(chunks).toString('utf8');
+      if (!text) return resolve({});
+      try {
+        resolve(JSON.parse(text));
+      } catch (e) {
+        reject(new Error('Invalid JSON body'));
+      }
+    });
+    req.on('error', function (e) {
+      if (settled) return;
+      settled = true;
+      reject(e);
+    });
   });
 }
 
@@ -92,21 +135,21 @@ function serializeRow(row) {
   return out;
 }
 
-export default async function handler(req) {
+export default async function handler(req, res) {
   const rawUrl = getConnectionString();
   if (!rawUrl) {
     if (req.method === 'GET') {
-      return json({ ok: true, notConfigured: true, items: [], total: 0 });
+      return send(res, 200, { ok: true, notConfigured: true, items: [], total: 0 });
     }
     if (req.method === 'POST' || req.method === 'DELETE') {
-      return json({ ok: false, notConfigured: true, error: 'Database not linked' }, 503);
+      return send(res, 503, { ok: false, notConfigured: true, error: 'Database not linked' });
     }
-    return new Response('Method Not Allowed', { status: 405 });
+    return sendText(res, 405, 'Method Not Allowed');
   }
 
   if (!isDirectPostgresUrl(rawUrl)) {
     if (req.method === 'GET') {
-      return json({
+      return send(res, 200, {
         ok: true,
         notConfigured: true,
         items: [],
@@ -114,14 +157,11 @@ export default async function handler(req) {
         hint: 'Use the direct postgres:// or postgresql:// URL (not prisma://) in DATABASE_URL or POSTGRES_URL.',
       });
     }
-    return json(
-      {
-        ok: false,
-        error:
-          'This app needs a direct Postgres connection string (postgres://…). Copy it from Prisma / Vercel Storage, not the Prisma Accelerate URL.',
-      },
-      503
-    );
+    return send(res, 503, {
+      ok: false,
+      error:
+        'This app needs a direct Postgres connection string (postgres://…). Copy it from Prisma / Vercel Storage, not the Prisma Accelerate URL.',
+    });
   }
 
   const sql = getSql();
@@ -130,10 +170,10 @@ export default async function handler(req) {
     await ensureTable();
   } catch (e) {
     console.error('history ensureTable', e);
-    return json({ ok: false, error: e.message || 'Database init failed' }, 500);
+    return send(res, 500, { ok: false, error: (e && e.message) || 'Database init failed' });
   }
 
-  const url = new URL(req.url);
+  const url = new URL(req.url || '/api/history', 'http://localhost');
 
   if (req.method === 'GET') {
     const id = url.searchParams.get('id');
@@ -144,8 +184,8 @@ export default async function handler(req) {
                  genre_primary, genre_secondary, mood, model, reference_artist, instrumental, raw_content
           FROM generations WHERE id = ${id} LIMIT 1
         `;
-        if (!rows.length) return json({ ok: false, error: 'Not found' }, 404);
-        return json({ ok: true, item: serializeRow(rows[0]) });
+        if (!rows.length) return send(res, 404, { ok: false, error: 'Not found' });
+        return send(res, 200, { ok: true, item: serializeRow(rows[0]) });
       }
 
       const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get('limit') || '50', 10)));
@@ -163,7 +203,7 @@ export default async function handler(req) {
       const countRows = await sql`SELECT COUNT(*)::int AS c FROM generations`;
       const total = countRows[0] ? Number(countRows[0].c) : 0;
 
-      return json({
+      return send(res, 200, {
         ok: true,
         items: rows.map(serializeRow),
         total,
@@ -172,13 +212,13 @@ export default async function handler(req) {
       });
     } catch (e) {
       console.error('history GET', e);
-      return json({ ok: false, error: e.message || 'Query failed' }, 500);
+      return send(res, 500, { ok: false, error: (e && e.message) || 'Query failed' });
     }
   }
 
   if (req.method === 'POST') {
     try {
-      const body = await req.json();
+      const body = await readJson(req);
       const title = String(body.title || '').slice(0, 2000);
       const style_prompt = String(body.stylePrompt || body.style_prompt || '');
       const lyrics = String(body.lyrics || '');
@@ -187,7 +227,8 @@ export default async function handler(req) {
       const genre_secondary = body.genreSecondary != null ? String(body.genreSecondary).slice(0, 200) : null;
       const mood = body.mood != null ? String(body.mood).slice(0, 120) : null;
       const model = body.model != null ? String(body.model).slice(0, 200) : null;
-      const reference_artist = body.referenceArtist != null ? String(body.referenceArtist).slice(0, 200) : null;
+      const reference_artist =
+        body.referenceArtist != null ? String(body.referenceArtist).slice(0, 200) : null;
       const instrumental = Boolean(body.instrumental);
       const raw_content = body.rawContent != null ? String(body.rawContent).slice(0, 500000) : null;
 
@@ -202,24 +243,25 @@ export default async function handler(req) {
         RETURNING id, created_at
       `;
       const row = serializeRow(rows[0]);
-      return json({ ok: true, id: row.id, created_at: row.created_at });
+      return send(res, 200, { ok: true, id: row.id, created_at: row.created_at });
     } catch (e) {
       console.error('history POST', e);
-      return json({ ok: false, error: e.message || 'Insert failed' }, 500);
+      return send(res, 500, { ok: false, error: (e && e.message) || 'Insert failed' });
     }
   }
 
   if (req.method === 'DELETE') {
     const id = url.searchParams.get('id');
-    if (!id) return json({ ok: false, error: 'Missing id' }, 400);
+    if (!id) return send(res, 400, { ok: false, error: 'Missing id' });
     try {
       await sql`DELETE FROM generations WHERE id = ${id}`;
-      return json({ ok: true });
+      return send(res, 200, { ok: true });
     } catch (e) {
       console.error('history DELETE', e);
-      return json({ ok: false, error: e.message || 'Delete failed' }, 500);
+      return send(res, 500, { ok: false, error: (e && e.message) || 'Delete failed' });
     }
   }
 
-  return new Response('Method Not Allowed', { status: 405 });
+  return sendText(res, 405, 'Method Not Allowed');
 }
+
