@@ -1,4 +1,5 @@
-import { buildOpenRouterChatBody, parseOpenRouterErrorBody } from './openrouter-utils.js';
+import { buildChatBody, getProviderApiKey, getProviderHeaders, resolveProvider } from './providers.js';
+import { parseOpenRouterErrorBody } from './openrouter-utils.js';
 
 export const config = {
   runtime: 'edge',
@@ -9,30 +10,30 @@ export default async function handler(req) {
     return new Response('Method Not Allowed', { status: 405 });
   }
 
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) {
-    return new Response(
-      JSON.stringify({ error: 'Server misconfiguration: OPENROUTER_API_KEY is not set in Vercel project settings.' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
-  }
-
   try {
-    const { prompt, model } = await req.json();
+    const { prompt, model, provider: providerId } = await req.json();
+    const provider = resolveProvider(providerId);
+
+    const apiKey = getProviderApiKey(provider);
+    if (!apiKey) {
+      return new Response(
+        JSON.stringify({ error: `Server misconfiguration: ${provider.envKey} is not set in Vercel project settings (provider: ${provider.label}).` }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
 
     const siteUrl =
       process.env.OPENROUTER_SITE_URL ||
       (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://localhost');
 
-    const body = buildOpenRouterChatBody(prompt, model, false);
+    const body = buildChatBody(provider, prompt, model, false);
 
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const response = await fetch(provider.baseUrl + '/chat/completions', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': siteUrl,
-        'X-Title': 'Suno God Mode',
+        ...getProviderHeaders(provider, siteUrl),
       },
       body: JSON.stringify(body),
     });

@@ -1089,17 +1089,24 @@ html.light .chip.suggested {
       <!-- OpenRouter model -->
       <div class="card" style="margin-bottom:12px">
         <div class="card-header open" onclick="toggleCard(this)">
-          <h3><i class="fas fa-robot"></i> OpenRouter Model</h3>
+          <h3><i class="fas fa-robot"></i> LLM Gateway</h3>
           <i class="fas fa-chevron-down chevron"></i>
         </div>
         <div class="card-body open">
-          <label>Model (live OpenRouter catalog)</label>
+          <label>Provider</label>
+          <select id="llmProvider" onchange="onProviderChange()" style="width:100%; padding:8px; background:var(--bg-tertiary); color:var(--text); border:1px solid var(--border); border-radius:8px; font-family:'Fira Code', monospace; font-size:0.85rem">
+            <option value="openrouter">OpenRouter</option>
+            <option value="nanogpt">NanoGPT</option>
+            <option value="cline-pass">ClinePass</option>
+            <option value="opencode-go">OpenCode Go</option>
+          </select>
+          <label style="margin-top:12px">Model (live catalog)</label>
           <input type="text" class="openrouter-model-input" list="openRouterModelDatalist" id="openRouterModelPicker" placeholder="Loading models…" autocomplete="off" spellcheck="false">
           <datalist id="openRouterModelDatalist"></datalist>
           <span id="openRouterModelStatus" style="display:block; margin-top:6px; font-size:11px; color:var(--text-muted); line-height:1.35"></span>
           <label style="margin-top:12px">Custom model ID (optional)</label>
           <input type="text" class="openrouter-model-input" id="openRouterModelCustom" placeholder="Overrides the field above — exact slug from openrouter.ai/models" autocomplete="off" spellcheck="false">
-          <p style="margin-top:8px; font-size:12px; color:var(--text-muted); line-height:1.4">Picker + datalist load from <code style="font-size:11px">GET /api/models</code> (same list as OpenRouter). Type to narrow. Empty picker + empty custom = server <code style="font-size:11px">OPENROUTER_MODEL</code> or <code style="font-size:11px">openai/gpt-4o-mini</code>, with API fallbacks if a slug has no endpoint.</p>
+          <p style="margin-top:8px; font-size:12px; color:var(--text-muted); line-height:1.4">Catalog loads from <code style="font-size:11px">GET /api/models?provider=…</code> for the selected gateway. Type to narrow. Empty picker + empty custom = server default per provider. Server keys: <code style="font-size:11px">OPENROUTER_API_KEY</code>, <code style="font-size:11px">NANOGPT_API_KEY</code>, <code style="font-size:11px">CLINEPASS_API_KEY</code>, <code style="font-size:11px">OPENCODE_GO_API_KEY</code>.</p>
         </div>
       </div>
       <!-- Templates -->
@@ -2835,19 +2842,43 @@ let isGenre1Locked = false;
 let isGenre2Locked = false;
 let selectedRhymeScheme = '';
 /* ===== INIT ===== */
+function getSelectedProvider() {
+  var sel = document.getElementById('llmProvider');
+  var p = sel ? sel.value : 'openrouter';
+  try { localStorage.setItem('suno_llm_provider', p); } catch (e) {}
+  return p;
+}
+function restoreSelectedProvider() {
+  var sel = document.getElementById('llmProvider');
+  if (!sel) return;
+  try {
+    var saved = localStorage.getItem('suno_llm_provider');
+    if (saved && sel.querySelector('option[value="' + saved + '"]')) sel.value = saved;
+  } catch (e) {}
+}
+function onProviderChange() {
+  document.getElementById('openRouterModelPicker').value = '';
+  document.getElementById('openRouterModelCustom').value = '';
+  getSelectedProvider();
+  loadOpenRouterModels();
+}
 function getOpenRouterModel() {
   var custom = document.getElementById('openRouterModelCustom').value.trim();
   if (custom) return custom;
   var pick = document.getElementById('openRouterModelPicker').value.trim();
   return pick || undefined;
 }
+function getGeneratePayload(prompt) {
+  return { prompt: prompt, model: getOpenRouterModel(), provider: getSelectedProvider() };
+}
 async function loadOpenRouterModels() {
+  var provider = getSelectedProvider();
   var picker = document.getElementById('openRouterModelPicker');
   var datalist = document.getElementById('openRouterModelDatalist');
   var statusEl = document.getElementById('openRouterModelStatus');
-  if (statusEl) statusEl.textContent = 'Loading catalog from OpenRouter…';
+  if (statusEl) statusEl.textContent = 'Loading catalog…';
   try {
-    var res = await fetch('/api/models');
+    var res = await fetch('/api/models?provider=' + encodeURIComponent(provider));
     var j = await res.json();
     if (!res.ok) throw new Error(typeof j.error === 'string' ? j.error : res.statusText);
     datalist.innerHTML = '';
@@ -2862,18 +2893,19 @@ async function loadOpenRouterModels() {
     picker.placeholder = 'Type to search — pick any model ID';
     if (statusEl) {
       var n = j.data ? j.data.length : 0;
-      statusEl.textContent = n + ' models. Type to filter in the picker; custom field overrides.';
+      statusEl.textContent = n + ' models for ' + provider + '. Type to filter; custom field overrides.';
     }
   } catch (e) {
     picker.placeholder = 'Paste model ID (catalog load failed)';
     if (statusEl) {
-      statusEl.textContent = 'Catalog error: ' + (e.message || String(e)) + ' — paste a slug from openrouter.ai/models or use Custom below.';
+      statusEl.textContent = 'Catalog error: ' + (e.message || String(e)) + ' — paste a model ID in the picker or Custom below.';
     }
   }
 }
 async function init() {
   await loadArtistData();
   initTheme();
+  restoreSelectedProvider();
   loadOpenRouterModels();
   buildTemplateGrid();
   populateSelect('genre1', GENRES, true);
@@ -3756,7 +3788,7 @@ async function generateConcept() {
     var res = await fetch('/api/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: prompt, model: getOpenRouterModel() })
+      body: JSON.stringify(getGeneratePayload(prompt))
     });
     var data = await res.json();
     if (!res.ok) {
@@ -3800,7 +3832,7 @@ async function generateSong() {
     var res = await fetch('/api/generate-stream', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: prompt, model: getOpenRouterModel() })
+      body: JSON.stringify(getGeneratePayload(prompt))
     });
     if (!res.ok) {
       var errData = await res.json().catch(function() { return {}; });
@@ -6416,6 +6448,7 @@ function collectGenerationMeta() {
     genreSecondary: g2el ? g2el.value : '',
     mood: moodEl ? moodEl.value : '',
     model: getOpenRouterModel(),
+    provider: getSelectedProvider(),
     referenceArtist: currentArtist || '',
     instrumental: isInstrumentalMode
   };

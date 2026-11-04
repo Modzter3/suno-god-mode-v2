@@ -7,7 +7,10 @@ Static web app plus Vercel Edge functions that call [OpenRouter](https://openrou
 1. Push this folder to a GitHub repository (see below).
 2. In [Vercel](https://vercel.com), import the repo.
 3. Add **Environment variables** (Project → Settings → Environment Variables):
-   - `OPENROUTER_API_KEY` — your OpenRouter API key (required).
+   - `OPENROUTER_API_KEY` — your OpenRouter API key (used when the provider selector is set to OpenRouter).
+   - `NANOGPT_API_KEY` — optional; enables the **NanoGPT** gateway (provider selector).
+   - `CLINEPASS_API_KEY` — optional; enables the **ClinePass** gateway (provider selector; key from Cline → ClinePass).
+   - `OPENCODE_GO_API_KEY` — optional; enables the **OpenCode Go (Zen)** gateway (provider selector).
    - `OPENROUTER_MODEL` — optional; if unset, the app defaults to `openai/gpt-4o-mini`. The API also sends **fallback models** so a single unavailable slug does not fail the whole request (see [model fallbacks](https://openrouter.ai/docs/guides/routing/model-fallbacks)).
    - `OPENROUTER_SITE_URL` — optional; defaults to `https://$VERCEL_URL` for the `HTTP-Referer` header OpenRouter expects.
    - **`BLOB_READ_WRITE_TOKEN`** — optional; create a [Vercel Blob](https://vercel.com/docs/storage/vercel-blob) store on the project to enable **Upload audio** on Kie tabs (public URLs for Kie `uploadUrl`).
@@ -48,7 +51,7 @@ Two options:
 npm i -g vercel
 vercel link
 vercel env pull .env.local
-# Add OPENROUTER_API_KEY to .env.local or use `vercel env add`
+# Add OPENROUTER_API_KEY (and optionally NANOGPT_API_KEY, CLINEPASS_API_KEY, OPENCODE_GO_API_KEY) to .env.local or use `vercel env add`
 vercel dev
 ```
 

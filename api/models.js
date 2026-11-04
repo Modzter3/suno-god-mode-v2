@@ -2,23 +2,42 @@ export const config = {
   runtime: 'edge',
 };
 
+import { PROVIDERS, CLINEPASS_MODELS } from './providers.js';
+
 /**
- * Proxies OpenRouter's model catalog so the UI always shows current IDs (no stale hardcoded list).
+ * Proxies the model catalog for the selected provider so the UI always shows current IDs.
+ * - openrouter: live proxy of OpenRouter's catalog
+ * - nanogpt / opencode-go: live proxy of their OpenAI-compatible /models endpoint
+ * - cline-pass: static curated list (not publicly listable)
  * @see https://openrouter.ai/docs/api-reference/list-available-models
+ * @see https://docs.nano-gpt.com/api-reference/endpoint/chat-completion
  */
 export default async function handler(req) {
   if (req.method !== 'GET') {
     return new Response('Method Not Allowed', { status: 405 });
   }
 
+  const url = new URL(req.url, 'https://placeholder.local');
+  const providerId = url.searchParams.get('provider') || 'openrouter';
+  const provider = PROVIDERS[providerId] || PROVIDERS.openrouter;
+  const apiKey = process.env[provider.envKey] || '';
+
   try {
-    const apiKey = process.env.OPENROUTER_API_KEY;
+    if (provider.id === 'cline-pass') {
+      return new Response(JSON.stringify({ data: CLINEPASS_MODELS.map(function (id) { return { id: id, name: id }; }) }), {
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400',
+        },
+      });
+    }
+
     const headers = { Accept: 'application/json' };
     if (apiKey) {
       headers.Authorization = `Bearer ${apiKey}`;
     }
 
-    const upstream = await fetch('https://openrouter.ai/api/v1/models', { headers });
+    const upstream = await fetch(provider.baseUrl + '/models', { headers });
 
     if (!upstream.ok) {
       const text = await upstream.text();
